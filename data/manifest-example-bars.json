@@ -1,0 +1,79 @@
+{
+    "song": {
+        "title": "Sample Track (Bar-based sections)",
+        "artist": "Artist Name",
+        "duration": 225.5,
+        "durationFormatted": "3:45",
+        "bpm": 120,
+        "timeSignature": "4/4",
+        "key": "C Major",
+        "sampleRate": 44100,
+        "format": "mp3",
+        "bitrate": "320kbps"
+    },
+    "files": {
+        "mix": "music.mp3"
+    },
+    "stems": [
+        {
+            "id": "drums",
+            "name": "Drums",
+            "file": "stems/drums.mp3",
+            "order": 0,
+            "color": "#ff6b6b"
+        },
+        {
+            "id": "bass",
+            "name": "Bass",
+            "file": "stems/bass.mp3",
+            "order": 1,
+            "color": "#4ecdc4"
+        },
+        {
+            "id": "guitar",
+            "name": "Guitar",
+            "file": "stems/guitar.mp3",
+            "order": 2,
+            "color": "#ffe66d"
+        },
+        {
+            "id": "vocals",
+            "name": "Vocals",
+            "file": "stems/vocals.mp3",
+            "order": 3,
+            "color": "#a8dadc"
+        }
+    ],
+    "sections": [
+        {
+            "name": "Intro",
+            "startBar": 0,
+            "endBar": 8
+        },
+        {
+            "name": "Verse 1",
+            "startBar": 8,
+            "endBar": 24
+        },
+        {
+            "name": "Chorus",
+            "startBar": 24,
+            "endBar": 40
+        },
+        {
+            "name": "Verse 2",
+            "startBar": 40,
+            "endBar": 56
+        },
+        {
+            "name": "Bridge",
+            "startBar": 56,
+            "endBar": 72
+        },
+        {
+            "name": "Outro",
+            "startBar": 72,
+            "endBar": 90
+        }
+    ]
+}
