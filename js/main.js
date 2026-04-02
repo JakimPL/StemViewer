@@ -62,7 +62,6 @@ function initializeUI() {
 
     // Disable transport controls until audio is loaded
     document.getElementById('play-btn').disabled = true;
-    document.getElementById('pause-btn').disabled = true;
     document.getElementById('stop-btn').disabled = true;
 }
 
@@ -250,39 +249,57 @@ function setupEventListeners() {
 
     // Transport controls
     const playBtn = document.getElementById('play-btn');
-    const pauseBtn = document.getElementById('pause-btn');
     const stopBtn = document.getElementById('stop-btn');
 
+    // Play/Pause toggle button
     playBtn.addEventListener('click', async () => {
         if (!audioEngine) return;
 
         try {
-            await audioEngine.play();
-            playBtn.disabled = true;
-            pauseBtn.disabled = false;
-            stopBtn.disabled = false;
+            const state = audioEngine.getState();
+
+            if (state.isPlaying) {
+                // Currently playing → pause
+                audioEngine.pause();
+                updatePlayButtonIcon(false); // Show play icon
+            } else {
+                // Currently paused or stopped → play
+                await audioEngine.play();
+                updatePlayButtonIcon(true); // Show pause icon
+                stopBtn.disabled = false;
+            }
         } catch (error) {
-            console.error('Play failed:', error);
+            console.error('Play/Pause failed:', error);
             showError('Failed to play audio: ' + error.message);
         }
-    });
-
-    pauseBtn.addEventListener('click', () => {
-        if (!audioEngine) return;
-
-        audioEngine.pause();
-        playBtn.disabled = false;
-        pauseBtn.disabled = true;
     });
 
     stopBtn.addEventListener('click', () => {
         if (!audioEngine) return;
 
         audioEngine.stop();
-        playBtn.disabled = false;
-        pauseBtn.disabled = true;
+        updatePlayButtonIcon(false); // Show play icon
         stopBtn.disabled = true;
     });
+}
+
+/**
+ * Update play button icon based on playback state
+ * @param {boolean} isPlaying - True to show pause icon, false to show play icon
+ */
+function updatePlayButtonIcon(isPlaying) {
+    const playBtn = document.getElementById('play-btn');
+    const svg = playBtn.querySelector('svg');
+
+    if (isPlaying) {
+        // Show pause icon (two vertical bars)
+        svg.innerHTML = '<path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />';
+        playBtn.title = 'Pause';
+    } else {
+        // Show play icon (triangle)
+        svg.innerHTML = '<path d="M8 5v14l11-7z" />';
+        playBtn.title = 'Play';
+    }
 }
 
 /**
@@ -388,8 +405,7 @@ async function initializeAudio() {
     audioEngine.on('ended', () => {
         console.log('Playback ended');
         // Reset UI to stopped state
-        document.getElementById('play-btn').disabled = false;
-        document.getElementById('pause-btn').disabled = true;
+        updatePlayButtonIcon(false); // Show play icon
         document.getElementById('stop-btn').disabled = true;
     });
 
