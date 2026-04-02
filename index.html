@@ -22,22 +22,29 @@
             </div>
         </header>
 
-        <!-- Waveform Area -->
+        <!-- Waveform Area with Integrated Stem Controls -->
         <div class="waveform-container">
             <!-- Section markers appear above the waveform -->
             <div class="section-markers">
                 <!-- Populated dynamically from manifest.json -->
             </div>
 
-            <!-- Main waveform canvas -->
-            <canvas id="waveform-canvas"></canvas>
+            <div class="waveform-content">
+                <!-- Left sidebar with stem controls -->
+                <div class="stems-sidebar">
+                    <!-- Populated dynamically from manifest.json -->
+                </div>
 
-            <!-- Time display overlay -->
-            <div class="time-display">
-                <span class="current-time">0:00</span>
-                <span class="time-separator">/</span>
-                <span class="total-time">3:45</span>
-                <span class="current-bar">Bar 1</span>
+                <!-- Main waveform canvas -->
+                <canvas id="waveform-canvas"></canvas>
+
+                <!-- Time display overlay -->
+                <div class="time-display">
+                    <span class="current-time">0:00</span>
+                    <span class="time-separator">/</span>
+                    <span class="total-time">3:45</span>
+                    <span class="current-bar">Bar 1</span>
+                </div>
             </div>
         </div>
 
@@ -60,26 +67,10 @@
             </button>
         </div>
 
-        <!-- Stems List -->
-        <div class="stems-container">
-            <h3 class="stems-title">Stems</h3>
-            <div class="stems-list">
+        <!-- Metadata Info -->
+        <div class="metadata-info">
+            <div class="metadata-grid">
                 <!-- Populated dynamically from manifest.json -->
-            </div>
-        </div>
-
-        <!-- Expandable Metadata Panel -->
-        <div class="metadata-panel">
-            <button class="metadata-toggle" id="metadata-toggle">
-                <span>Additional Info</span>
-                <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M7 10l5 5 5-5z" />
-                </svg>
-            </button>
-            <div class="metadata-content" id="metadata-content">
-                <div class="metadata-grid">
-                    <!-- Populated dynamically from manifest.json -->
-                </div>
             </div>
         </div>
 

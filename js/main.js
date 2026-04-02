@@ -22,9 +22,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Setup event listeners
         setupEventListeners();
 
-        // Initialize canvas
-        initializeCanvas();
-
     } catch (error) {
         console.error('Failed to initialize application:', error);
         showError('Failed to load song data. Please check the console for details.');
@@ -49,6 +46,51 @@ function initializeUI() {
 
     // Update time display
     updateTimeDisplay(0); // Start at 0:00
+
+    // Adjust stem heights after layout is complete
+    requestAnimationFrame(() => {
+        adjustStemHeights();
+    });
+}
+
+/**
+ * Adjust stem heights dynamically based on available space
+ */
+function adjustStemHeights() {
+    const waveformContent = document.querySelector('.waveform-content');
+    const stemItems = document.querySelectorAll('.stem-control-item');
+
+    if (!waveformContent || stemItems.length === 0) return;
+
+    const availableHeight = waveformContent.clientHeight;
+    const stemCount = stemItems.length;
+
+    const MIN_HEIGHT = 60;
+    const MAX_HEIGHT = 180;
+
+    // Calculate minimum total height needed
+    const minTotalHeight = stemCount * MIN_HEIGHT;
+
+    let finalHeight;
+
+    if (minTotalHeight > availableHeight) {
+        // Not enough space - keep stems at minimum, content will scroll
+        finalHeight = MIN_HEIGHT;
+    } else {
+        // Enough space - distribute evenly with max constraint
+        const idealHeight = availableHeight / stemCount;
+        finalHeight = Math.min(MAX_HEIGHT, idealHeight);
+    }
+
+    // Apply height to all stems
+    stemItems.forEach(item => {
+        item.style.height = `${finalHeight}px`;
+    });
+
+    // Update canvas to match total stem heights
+    requestAnimationFrame(() => {
+        initializeCanvas();
+    });
 }
 
 /**
@@ -69,28 +111,30 @@ function updateSongHeader() {
  * Update stems list dynamically from manifest
  */
 function updateStemsList() {
-    const stemsList = document.querySelector('.stems-list');
-    stemsList.innerHTML = ''; // Clear existing items
+    const stemsSidebar = document.querySelector('.stems-sidebar');
+    stemsSidebar.innerHTML = ''; // Clear existing items
 
     manifest.stems.forEach(stem => {
         const stemItem = createStemItem(stem);
-        stemsList.appendChild(stemItem);
+        stemsSidebar.appendChild(stemItem);
     });
 }
 
 /**
- * Create a stem item element
+ * Create a stem item element for sidebar
  * @param {Object} stem - Stem data
  * @returns {HTMLElement} Stem item element
  */
 function createStemItem(stem) {
     const div = document.createElement('div');
-    div.className = 'stem-item';
+    div.className = 'stem-control-item';
     div.dataset.stemId = stem.id;
 
     div.innerHTML = `
-        <div class="stem-color" style="background-color: ${stem.color};"></div>
-        <span class="stem-name">${stem.name}</span>
+        <div class="stem-control-header">
+            <div class="stem-color" style="background-color: ${stem.color};"></div>
+            <span class="stem-name" title="${stem.name}">${stem.name}</span>
+        </div>
         <div class="stem-controls">
             <button class="stem-btn solo-btn" data-stem-id="${stem.id}" title="Solo">S</button>
             <button class="stem-btn mute-btn" data-stem-id="${stem.id}" title="Mute">M</button>
@@ -182,19 +226,9 @@ function updateTimeDisplay(currentTime = 0) {
  * Setup event listeners
  */
 function setupEventListeners() {
-    // Metadata panel toggle
-    const metadataToggle = document.getElementById('metadata-toggle');
-    const metadataContent = document.getElementById('metadata-content');
-
-    if (metadataToggle && metadataContent) {
-        metadataToggle.addEventListener('click', () => {
-            metadataToggle.classList.toggle('expanded');
-            metadataContent.classList.toggle('expanded');
-        });
-    }
-
     // Window resize
     window.addEventListener('resize', () => {
+        adjustStemHeights();
         initializeCanvas();
     });
 }
@@ -206,14 +240,20 @@ function initializeCanvas() {
     const canvas = document.getElementById('waveform-canvas');
     if (!canvas) return;
 
-    const container = canvas.parentElement;
-    const rect = container.getBoundingClientRect();
+    const waveformContent = canvas.parentElement;
+    const rect = waveformContent.getBoundingClientRect();
 
-    // Account for section markers (40px height)
-    const availableHeight = rect.height - 40;
+    // Get sidebar width and total stem heights
+    const sidebar = document.querySelector('.stems-sidebar');
+    const sidebarWidth = sidebar ? sidebar.offsetWidth : 0;
 
-    canvas.width = rect.width;
-    canvas.height = availableHeight;
+    // Calculate total height from all stems
+    const stemItems = document.querySelectorAll('.stem-control-item');
+    const totalStemHeight = Array.from(stemItems).reduce((sum, item) => sum + item.offsetHeight, 0);
+
+    // Calculate available space for canvas
+    canvas.width = rect.width - sidebarWidth;
+    canvas.height = totalStemHeight || rect.height; // Use total stem height, fallback to container height
 
     // Draw placeholder waveform using stem colors from manifest
     drawPlaceholderWaveform(canvas);
@@ -233,19 +273,25 @@ function drawPlaceholderWaveform(canvas) {
     const barCount = 200;
     const barWidth = canvas.width / barCount;
     const stemColors = manifest.stems.map(s => s.color);
-    const stemCount = stemColors.length;
+
+    // Get actual heights from DOM
+    const stemItems = document.querySelectorAll('.stem-control-item');
+    const stemHeights = Array.from(stemItems).map(item => item.offsetHeight);
 
     for (let i = 0; i < barCount; i++) {
-        const stemHeight = canvas.height / stemCount;
+        let currentY = 0;
 
         stemColors.forEach((color, stemIndex) => {
+            const stemHeight = stemHeights[stemIndex] || 0;
             const amplitude = Math.random() * 0.8 + 0.2;
             const height = stemHeight * amplitude * 0.5;
-            const y = stemIndex * stemHeight + (stemHeight - height) / 2;
+            const y = currentY + (stemHeight - height) / 2;
 
             ctx.fillStyle = color;
             ctx.globalAlpha = 0.7;
             ctx.fillRect(i * barWidth, y, barWidth - 1, height);
+
+            currentY += stemHeight;
         });
     }
 
