@@ -72,7 +72,6 @@ body {
     display: flex;
     position: relative;
     min-height: 0;
-    overflow-y: auto;
 }
 
 /* Stems Sidebar */
@@ -80,6 +79,7 @@ body {
     width: 140px;
     background-color: #2a2a2a;
     border-right: 1px solid #333;
+    overflow-y: auto;
     min-height: 0;
 }
 

@@ -22,6 +22,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Setup event listeners
         setupEventListeners();
 
+        // Initialize canvas
+        initializeCanvas();
+
     } catch (error) {
         console.error('Failed to initialize application:', error);
         showError('Failed to load song data. Please check the console for details.');
@@ -57,12 +60,12 @@ function initializeUI() {
  * Adjust stem heights dynamically based on available space
  */
 function adjustStemHeights() {
-    const waveformContent = document.querySelector('.waveform-content');
+    const sidebar = document.querySelector('.stems-sidebar');
     const stemItems = document.querySelectorAll('.stem-control-item');
 
-    if (!waveformContent || stemItems.length === 0) return;
+    if (!sidebar || stemItems.length === 0) return;
 
-    const availableHeight = waveformContent.clientHeight;
+    const availableHeight = sidebar.clientHeight;
     const stemCount = stemItems.length;
 
     const MIN_HEIGHT = 60;
@@ -74,7 +77,7 @@ function adjustStemHeights() {
     let finalHeight;
 
     if (minTotalHeight > availableHeight) {
-        // Not enough space - keep stems at minimum, content will scroll
+        // Not enough space - keep stems at minimum and let sidebar scroll
         finalHeight = MIN_HEIGHT;
     } else {
         // Enough space - distribute evenly with max constraint
@@ -87,9 +90,12 @@ function adjustStemHeights() {
         item.style.height = `${finalHeight}px`;
     });
 
-    // Update canvas to match total stem heights
+    // Redraw canvas after heights are applied
     requestAnimationFrame(() => {
-        initializeCanvas();
+        const canvas = document.getElementById('waveform-canvas');
+        if (canvas) {
+            drawPlaceholderWaveform(canvas);
+        }
     });
 }
 
@@ -243,17 +249,13 @@ function initializeCanvas() {
     const waveformContent = canvas.parentElement;
     const rect = waveformContent.getBoundingClientRect();
 
-    // Get sidebar width and total stem heights
+    // Get sidebar width
     const sidebar = document.querySelector('.stems-sidebar');
     const sidebarWidth = sidebar ? sidebar.offsetWidth : 0;
 
-    // Calculate total height from all stems
-    const stemItems = document.querySelectorAll('.stem-control-item');
-    const totalStemHeight = Array.from(stemItems).reduce((sum, item) => sum + item.offsetHeight, 0);
-
     // Calculate available space for canvas
     canvas.width = rect.width - sidebarWidth;
-    canvas.height = totalStemHeight || rect.height; // Use total stem height, fallback to container height
+    canvas.height = rect.height;
 
     // Draw placeholder waveform using stem colors from manifest
     drawPlaceholderWaveform(canvas);
