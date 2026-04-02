@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stem Viewer</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header: Song Title and Metadata -->
+        <header class="song-header">
+            <h1 class="song-title">Song Title</h1>
+            <div class="song-meta">
+                <span class="artist-name">Artist Name</span>
+                <span class="separator">•</span>
+                <span class="bpm">120 BPM</span>
+                <span class="separator">•</span>
+                <span class="duration">3:45</span>
+            </div>
+        </header>
+
+        <!-- Waveform Area -->
+        <div class="waveform-container">
+            <!-- Section markers appear above the waveform -->
+            <div class="section-markers">
+                <div class="section-marker" style="left: 0%; width: 25%;">
+                    <span class="section-label">Intro</span>
+                </div>
+                <div class="section-marker" style="left: 25%; width: 35%;">
+                    <span class="section-label">Verse 1</span>
+                </div>
+                <div class="section-marker" style="left: 60%; width: 40%;">
+                    <span class="section-label">Chorus</span>
+                </div>
+            </div>
+            
+            <!-- Main waveform canvas -->
+            <canvas id="waveform-canvas"></canvas>
+            
+            <!-- Time display overlay -->
+            <div class="time-display">
+                <span class="current-time">0:00</span>
+                <span class="time-separator">/</span>
+                <span class="total-time">3:45</span>
+                <span class="current-bar">Bar 1</span>
+            </div>
+        </div>
+
+        <!-- Transport Controls -->
+        <div class="transport-controls">
+            <button class="control-btn" id="play-btn" title="Play">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z"/>
+                </svg>
+            </button>
+            <button class="control-btn" id="pause-btn" title="Pause" disabled>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                </svg>
+            </button>
+            <button class="control-btn" id="stop-btn" title="Stop" disabled>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 6h12v12H6z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Stems List -->
+        <div class="stems-container">
+            <h3 class="stems-title">Stems</h3>
+            <div class="stems-list">
+                <!-- Example stems - will be populated dynamically -->
+                <div class="stem-item">
+                    <div class="stem-color" style="background-color: #ff6b6b;"></div>
+                    <span class="stem-name">Drums</span>
+                    <div class="stem-controls">
+                        <button class="stem-btn solo-btn" title="Solo">S</button>
+                        <button class="stem-btn mute-btn" title="Mute">M</button>
+                    </div>
+                </div>
+                <div class="stem-item">
+                    <div class="stem-color" style="background-color: #4ecdc4;"></div>
+                    <span class="stem-name">Bass</span>
+                    <div class="stem-controls">
+                        <button class="stem-btn solo-btn" title="Solo">S</button>
+                        <button class="stem-btn mute-btn" title="Mute">M</button>
+                    </div>
+                </div>
+                <div class="stem-item">
+                    <div class="stem-color" style="background-color: #ffe66d;"></div>
+                    <span class="stem-name">Guitar</span>
+                    <div class="stem-controls">
+                        <button class="stem-btn solo-btn" title="Solo">S</button>
+                        <button class="stem-btn mute-btn" title="Mute">M</button>
+                    </div>
+                </div>
+                <div class="stem-item">
+                    <div class="stem-color" style="background-color: #a8dadc;"></div>
+                    <span class="stem-name">Vocals</span>
+                    <div class="stem-controls">
+                        <button class="stem-btn solo-btn" title="Solo">S</button>
+                        <button class="stem-btn mute-btn" title="Mute">M</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expandable Metadata Panel -->
+        <div class="metadata-panel">
+            <button class="metadata-toggle" id="metadata-toggle">
+                <span>Additional Info</span>
+                <svg class="toggle-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 10l5 5 5-5z"/>
+                </svg>
+            </button>
+            <div class="metadata-content" id="metadata-content">
+                <div class="metadata-grid">
+                    <div class="metadata-item">
+                        <span class="metadata-label">Format</span>
+                        <span class="metadata-value">MP3, 320kbps</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Sample Rate</span>
+                        <span class="metadata-value">44.1 kHz</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Time Signature</span>
+                        <span class="metadata-value">4/4</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Key</span>
+                        <span class="metadata-value">C Major</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
