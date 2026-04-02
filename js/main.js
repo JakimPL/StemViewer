@@ -5,9 +5,11 @@
 
 import { loadManifest, resolveAudioPath } from './dataLoader.js';
 import { formatTime, calculateSectionPositions } from './utils.js';
+import { AudioEngine } from './audioEngine.js';
 
 // Application state
 let manifest = null;
+let audioEngine = null;
 
 // Initialize application when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
@@ -24,6 +26,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Initialize canvas
         initializeCanvas();
+
+        // Initialize audio engine
+        await initializeAudio();
 
     } catch (error) {
         console.error('Failed to initialize application:', error);
@@ -54,6 +59,11 @@ function initializeUI() {
     requestAnimationFrame(() => {
         adjustStemHeights();
     });
+
+    // Disable transport controls until audio is loaded
+    document.getElementById('play-btn').disabled = true;
+    document.getElementById('pause-btn').disabled = true;
+    document.getElementById('stop-btn').disabled = true;
 }
 
 /**
@@ -237,6 +247,42 @@ function setupEventListeners() {
         adjustStemHeights();
         initializeCanvas();
     });
+
+    // Transport controls
+    const playBtn = document.getElementById('play-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const stopBtn = document.getElementById('stop-btn');
+
+    playBtn.addEventListener('click', async () => {
+        if (!audioEngine) return;
+
+        try {
+            await audioEngine.play();
+            playBtn.disabled = true;
+            pauseBtn.disabled = false;
+            stopBtn.disabled = false;
+        } catch (error) {
+            console.error('Play failed:', error);
+            showError('Failed to play audio: ' + error.message);
+        }
+    });
+
+    pauseBtn.addEventListener('click', () => {
+        if (!audioEngine) return;
+
+        audioEngine.pause();
+        playBtn.disabled = false;
+        pauseBtn.disabled = true;
+    });
+
+    stopBtn.addEventListener('click', () => {
+        if (!audioEngine) return;
+
+        audioEngine.stop();
+        playBtn.disabled = false;
+        pauseBtn.disabled = true;
+        stopBtn.disabled = true;
+    });
 }
 
 /**
@@ -319,6 +365,52 @@ function drawPlaceholderWaveform(canvas) {
     ctx.moveTo(0, 0);
     ctx.lineTo(0, canvas.height);
     ctx.stroke();
+}
+
+/**
+ * Initialize audio engine and load audio files
+ */
+async function initializeAudio() {
+    console.log('Initializing audio engine...');
+
+    // Create audio engine instance
+    audioEngine = new AudioEngine();
+
+    // Set up event listeners
+    audioEngine.on('loadprogress', (data) => {
+        console.log('Audio load progress:', data);
+    });
+
+    audioEngine.on('timeupdate', (time) => {
+        updateTimeDisplay(time);
+    });
+
+    audioEngine.on('ended', () => {
+        console.log('Playback ended');
+        // Reset UI to stopped state
+        document.getElementById('play-btn').disabled = false;
+        document.getElementById('pause-btn').disabled = true;
+        document.getElementById('stop-btn').disabled = true;
+    });
+
+    // Load audio from manifest
+    try {
+        console.log('Loading audio from manifest...', manifest);
+        await audioEngine.loadFromManifest(manifest);
+        console.log('Audio loaded successfully!');
+        console.log('Stems:', audioEngine.getStems());
+        console.log('Duration:', audioEngine.getDuration());
+
+        // Enable play button
+        document.getElementById('play-btn').disabled = false;
+        console.log('Play button enabled');
+    } catch (error) {
+        console.error('Failed to load audio:', error);
+        console.error('Error stack:', error.stack);
+        showError('Failed to load audio files. Check console for details.');
+        // Re-enable play button even on error so user can try again
+        document.getElementById('play-btn').disabled = false;
+    }
 }
 
 /**
