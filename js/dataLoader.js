@@ -4,6 +4,7 @@
  */
 
 import { barToSeconds, secondsToBar } from './utils.js';
+import { syncAudioCacheWithManifest } from './cacheManager.js';
 
 /**
  * Load manifest data from JSON file
@@ -20,6 +21,7 @@ export async function loadManifest(path = 'data/manifest.json') {
 
         const manifest = await response.json();
         validateManifest(manifest);
+        await syncAudioCacheWithManifest(manifest);
 
         return manifest;
     } catch (error) {

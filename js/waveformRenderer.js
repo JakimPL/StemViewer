@@ -235,8 +235,9 @@ export class WaveformRenderer {
         if (!this.audioEngine) return null;
 
         const buffers = [];
-        this.audioEngine.stems.forEach(stem => {
-            if (stem.buffer) {
+        this.manifest.stems.forEach(manifestStem => {
+            const stem = this.audioEngine.stems.get(manifestStem.id);
+            if (stem && stem.buffer) {
                 buffers.push(stem.buffer);
             }
         });

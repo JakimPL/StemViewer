@@ -3,6 +3,8 @@
  * Handles synchronized multi-stem audio playback with mute/solo controls
  */
 
+import { fetchArrayBufferWithCache } from './cacheManager.js';
+
 /**
  * AudioEngine class - manages Web Audio API for multi-stem playback
  */
@@ -62,30 +64,33 @@ export class AudioEngine {
      */
     async loadStem(stemId, url, metadata = {}) {
         try {
-            // Fetch audio file
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
-            }
-
-            const arrayBuffer = await response.arrayBuffer();
-
-            // Store raw buffer - will decode on first play (requires AudioContext)
+            // Insert placeholder immediately so map order follows manifest order, not fetch completion order.
             this.stems.set(stemId, {
                 id: stemId,
                 name: metadata.name || stemId,
                 color: metadata.color || '#ffffff',
-                arrayBuffer: arrayBuffer,  // Raw data
-                buffer: null,              // Will be decoded later
+                order: metadata.order ?? Number.MAX_SAFE_INTEGER,
+                arrayBuffer: null,
+                buffer: null,
                 source: null,
-                gainNode: null,            // Created when AudioContext exists
+                gainNode: null,
                 isMuted: metadata.defaultMuted === true,
                 isSoloed: false
             });
 
+            const arrayBuffer = await fetchArrayBufferWithCache(url);
+
+            const stem = this.stems.get(stemId);
+            if (!stem) {
+                throw new Error(`Stem not found after initialization: ${stemId}`);
+            }
+            stem.arrayBuffer = arrayBuffer;
+
+            const loadedCount = Array.from(this.stems.values()).filter(s => s.arrayBuffer).length;
+
             this._emit('loadprogress', {
                 stemId,
-                loaded: this.stems.size,
+                loaded: loadedCount,
                 total: this.stems.size
             });
 
@@ -101,12 +106,7 @@ export class AudioEngine {
      */
     async loadMix(url) {
         try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch mix: ${response.statusText}`);
-            }
-
-            const arrayBuffer = await response.arrayBuffer();
+            const arrayBuffer = await fetchArrayBufferWithCache(url);
 
             // Store raw buffer - will decode on first play
             this.mixNode = {
@@ -144,7 +144,12 @@ export class AudioEngine {
                 const stemPromise = this.loadStem(
                     stem.id,
                     stem.file,
-                    { name: stem.name, color: stem.color, defaultMuted }
+                    {
+                        name: stem.name,
+                        color: stem.color,
+                        order: stem.order,
+                        defaultMuted
+                    }
                 );
                 promises.push(stemPromise);
             }
@@ -193,13 +198,16 @@ export class AudioEngine {
      * @returns {Array} Array of stem info objects
      */
     getStems() {
-        return Array.from(this.stems.values()).map(stem => ({
-            id: stem.id,
-            name: stem.name,
-            color: stem.color,
-            isMuted: stem.isMuted,
-            isSoloed: stem.isSoloed
-        }));
+        return Array.from(this.stems.values())
+            .sort((a, b) => a.order - b.order)
+            .map(stem => ({
+                id: stem.id,
+                name: stem.name,
+                color: stem.color,
+                order: stem.order,
+                isMuted: stem.isMuted,
+                isSoloed: stem.isSoloed
+            }));
     }
 
     // Event system
