@@ -3,7 +3,7 @@
  * Handles all DOM updates and UI state management
  */
 
-import { formatTime, calculateSectionPositions } from './utils.js';
+import { formatTime } from './utils.js';
 
 /**
  * Adjust stem heights dynamically based on available space
@@ -94,11 +94,11 @@ function createStemItem(stem) {
 /**
  * Update section markers from manifest
  */
-function updateSectionMarkers(manifest, getAudioEngine, updatePlayButtonIcon) {
+function updateSectionMarkers(manifest, songMetrics, getAudioEngine, updatePlayButtonIcon) {
     const sectionsContainer = document.querySelector('.section-markers');
     sectionsContainer.innerHTML = ''; // Clear existing markers
 
-    const sectionsWithPos = calculateSectionPositions(manifest.sections, manifest.song.duration);
+    const sectionsWithPos = songMetrics.getSectionsWithPositions();
 
     sectionsWithPos.forEach(section => {
         const marker = createSectionMarker(section, getAudioEngine, updatePlayButtonIcon);

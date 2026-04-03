@@ -4,7 +4,7 @@
  */
 
 import { loadManifest, resolveAudioPath } from './dataLoader.js';
-import { formatTime, calculateSectionPositions } from './utils.js';
+import { formatTime } from './utils.js';
 import { AudioEngine } from './audioEngine.js';
 import { WaveformRenderer } from './waveformRenderer.js';
 import { SongMetrics } from './songMetrics.js';
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Initialize waveform renderer
         const canvas = document.getElementById('waveform-canvas');
-        waveformRenderer = new WaveformRenderer(canvas, manifest);
+        waveformRenderer = new WaveformRenderer(canvas, manifest, songMetrics);
         waveformRenderer.resize();
 
         // Initialize audio engine
@@ -69,7 +69,7 @@ function initializeUI() {
     updateStemsList(manifest);
 
     // Update section markers
-    updateSectionMarkers(manifest, () => audioEngine, updatePlayButtonIcon);
+    updateSectionMarkers(manifest, songMetrics, () => audioEngine, updatePlayButtonIcon);
 
     // Update time ruler
     updateTimeRuler(manifest, songMetrics);

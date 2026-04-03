@@ -3,8 +3,6 @@
  * Handles all canvas-based waveform visualization
  */
 
-import { calculateSectionPositions } from './utils.js';
-
 /**
  * WaveformRenderer class - Manages canvas-based waveform visualization
  */
@@ -13,11 +11,13 @@ export class WaveformRenderer {
      * Create a WaveformRenderer
      * @param {HTMLCanvasElement} canvasElement - Canvas element to render on
      * @param {Object} manifest - Song manifest with stems and sections
+     * @param {SongMetrics} songMetrics - Song metrics helper
      * @param {number} pixelsPerBar - Waveform detail level (default: 4)
      */
-    constructor(canvasElement, manifest, pixelsPerBar = 4) {
+    constructor(canvasElement, manifest, songMetrics, pixelsPerBar = 4) {
         this.canvas = canvasElement;
         this.manifest = manifest;
+        this.songMetrics = songMetrics;
         this.pixelsPerBar = pixelsPerBar;
         this.audioEngine = null;
         this.ctx = canvasElement ? canvasElement.getContext('2d') : null;
@@ -140,15 +140,12 @@ export class WaveformRenderer {
      * @private
      */
     _drawSectionDividers() {
-        if (!this.manifest) return;
+        if (!this.manifest || !this.songMetrics) return;
 
         this.ctx.strokeStyle = '#555';
         this.ctx.lineWidth = 2;
 
-        const sectionsWithPos = calculateSectionPositions(
-            this.manifest.sections,
-            this.manifest.song.duration
-        );
+        const sectionsWithPos = this.songMetrics.getSectionsWithPositions();
 
         sectionsWithPos.forEach(section => {
             const x = (section.leftPercent / 100) * this.canvas.width;
