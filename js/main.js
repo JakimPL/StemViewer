@@ -11,6 +11,12 @@ import { AudioEngine } from './audioEngine.js';
 let manifest = null;
 let audioEngine = null;
 
+// Waveform rendering configuration
+// Adjust this value to change waveform detail level:
+// - Lower values (1-2) = more detail, more bars, denser waveform
+// - Higher values (4-8) = less detail, fewer bars, sparser waveform
+const WAVEFORM_PIXELS_PER_BAR = 4;
+
 // Initialize application when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -620,7 +626,7 @@ function initializeCanvas() {
 }
 
 /**
- * Draw placeholder waveform on canvas
+ * Draw waveform on canvas (uses real audio data if available)
  * @param {HTMLCanvasElement} canvas - Canvas element
  */
 function drawPlaceholderWaveform(canvas) {
@@ -630,7 +636,8 @@ function drawPlaceholderWaveform(canvas) {
 
     if (!manifest) return;
 
-    const barCount = 200;
+    // Calculate bar count based on canvas width and granularity
+    const barCount = Math.floor(canvas.width / WAVEFORM_PIXELS_PER_BAR);
     const barWidth = canvas.width / barCount;
     const stemColors = manifest.stems.map(s => s.color);
 
@@ -638,12 +645,24 @@ function drawPlaceholderWaveform(canvas) {
     const stemItems = document.querySelectorAll('.stem-control-item');
     const stemHeights = Array.from(stemItems).map(item => item.offsetHeight);
 
+    // Check if audio is decoded and we can use real waveform data
+    const useRealData = audioEngine && audioEngine.isAudioReady;
+    const stemBuffers = useRealData ? getAudioBuffers() : null;
+
     for (let i = 0; i < barCount; i++) {
         let currentY = 0;
 
         stemColors.forEach((color, stemIndex) => {
             const stemHeight = stemHeights[stemIndex] || 0;
-            const amplitude = Math.random() * 0.8 + 0.2;
+
+            // Get amplitude - use real data if available, otherwise random
+            let amplitude;
+            if (stemBuffers && stemBuffers[stemIndex]) {
+                amplitude = getAmplitudeAtPosition(stemBuffers[stemIndex], i / barCount);
+            } else {
+                amplitude = Math.random() * 0.8 + 0.2;
+            }
+
             const height = stemHeight * amplitude * 0.5;
             const y = currentY + (stemHeight - height) / 2;
 
@@ -669,6 +688,61 @@ function drawPlaceholderWaveform(canvas) {
         ctx.lineTo(x, canvas.height);
         ctx.stroke();
     });
+}
+
+/**
+ * Get audio buffers from audio engine
+ * @returns {Array<AudioBuffer>} Array of audio buffers for each stem
+ */
+function getAudioBuffers() {
+    if (!audioEngine) return null;
+
+    const buffers = [];
+    audioEngine.stems.forEach(stem => {
+        if (stem.buffer) {
+            buffers.push(stem.buffer);
+        }
+    });
+
+    return buffers.length > 0 ? buffers : null;
+}
+
+/**
+ * Calculate amplitude at a specific position in the audio buffer
+ * @param {AudioBuffer} buffer - Audio buffer
+ * @param {number} position - Position (0-1) in the buffer
+ * @returns {number} Amplitude (0-1)
+ */
+function getAmplitudeAtPosition(buffer, position) {
+    const channelData = buffer.getChannelData(0); // Use first channel (mono or left)
+    const sampleCount = channelData.length;
+
+    // Calculate which samples to analyze for this position
+    // We want to downsample the buffer to match our bar count
+    const canvas = document.getElementById('waveform-canvas');
+    const barCount = Math.floor(canvas.width / WAVEFORM_PIXELS_PER_BAR);
+    const samplesPerBar = Math.floor(sampleCount / barCount);
+    const startSample = Math.floor(position * sampleCount);
+    const endSample = Math.min(startSample + samplesPerBar, sampleCount);
+
+    // Calculate RMS (root mean square) amplitude for this window
+    let sum = 0;
+    let count = 0;
+    for (let i = startSample; i < endSample; i++) {
+        const sample = channelData[i];
+        sum += sample * sample;
+        count++;
+    }
+
+    if (count === 0) return 0;
+
+    const rms = Math.sqrt(sum / count);
+
+    // Normalize and apply scaling for better visibility
+    // RMS values are typically 0-0.3 for normal audio, so we scale up
+    const normalized = Math.min(rms * 3.5, 1.0);
+
+    return normalized;
 }
 
 /**
@@ -719,6 +793,11 @@ async function initializeAudio() {
 
         playBtn?.classList.remove('decoding');
         wrapper?.classList.remove('decoding');
+
+        // Redraw waveform with real audio data
+        if (canvas) {
+            drawPlaceholderWaveform(canvas);
+        }
     });
 
     // Load audio from manifest
