@@ -70,6 +70,12 @@ body {
     overflow: hidden;
 }
 
+.waveform-board-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
 .waveform-content {
     flex: 1;
     display: flex;
@@ -87,7 +93,7 @@ body {
 .stems-sidebar {
     flex: 1;
     background-color: #2a2a2a;
-    overflow-y: auto;
+    overflow: visible;
     min-height: 0;
 }
 

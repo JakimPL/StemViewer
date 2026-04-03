@@ -62,15 +62,11 @@ export class WaveformRenderer {
     resize() {
         if (!this.canvas) return;
 
-        const waveformContent = this.canvas.parentElement;
-        const rect = waveformContent.getBoundingClientRect();
+        const canvasWrapper = this.canvas.parentElement;
+        const rect = canvasWrapper.getBoundingClientRect();
 
-        // Get sidebar width
-        const sidebar = document.querySelector('.stems-sidebar');
-        const sidebarWidth = sidebar ? sidebar.offsetWidth : 0;
-
-        // Calculate available space for canvas
-        this.canvas.width = rect.width - sidebarWidth;
+        // Wrapper already excludes sidebar width.
+        this.canvas.width = rect.width;
         this.canvas.height = rect.height;
 
         // Render after resize

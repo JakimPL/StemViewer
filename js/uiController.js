@@ -51,9 +51,10 @@ export class UIController {
      */
     adjustStemHeights() {
         const sidebar = document.querySelector('.stems-sidebar');
+        const waveformContent = document.querySelector('.waveform-content');
         const stemItems = document.querySelectorAll('.stem-control-item');
 
-        if (!sidebar || stemItems.length === 0) return;
+        if (!sidebar || !waveformContent || stemItems.length === 0) return;
 
         const availableHeight = sidebar.clientHeight;
         const stemCount = stemItems.length;
@@ -72,6 +73,9 @@ export class UIController {
         stemItems.forEach(item => {
             item.style.height = `${finalHeight}px`;
         });
+
+        // Keep sidebar and canvas rows vertically aligned; shared board container handles scrolling.
+        waveformContent.style.height = `${Math.round(finalHeight * stemCount)}px`;
     }
 
     /**
