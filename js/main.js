@@ -19,7 +19,10 @@ import {
     updatePlayhead,
     updatePlayheadVisibility,
     updateActiveSection,
-    updatePlayButtonIcon
+    updatePlayButtonIcon,
+    updateStemButtons,
+    updateAllStemButtons,
+    clearAllSoloButtons
 } from './uiController.js';
 
 // Application state
@@ -154,38 +157,18 @@ function setupEventListeners() {
         if (muteBtn) {
             const stemId = muteBtn.dataset.stemId;
             const isMuted = audioEngine.toggleMute(stemId);
-            muteBtn.classList.toggle('active', isMuted);
-
-            // If muted, also clear solo button visual state
-            if (isMuted) {
-                const soloBtn = muteBtn.parentElement.querySelector('.solo-btn');
-                if (soloBtn) {
-                    soloBtn.classList.remove('active');
-                }
-            }
+            updateStemButtons(stemId, { mute: isMuted, solo: isMuted ? false : undefined });
         } else if (soloBtn) {
             const stemId = soloBtn.dataset.stemId;
             const exclusive = !e.shiftKey; // Exclusive solo unless Shift is pressed
             const isSoloed = audioEngine.toggleSolo(stemId, exclusive);
 
-            // Update button state
-            soloBtn.classList.toggle('active', isSoloed);
+            // Update button states
+            updateStemButtons(stemId, { solo: isSoloed, mute: isSoloed ? false : undefined });
 
-            // If soloed, also clear mute button visual state
-            if (isSoloed) {
-                const muteBtn = soloBtn.parentElement.querySelector('.mute-btn');
-                if (muteBtn) {
-                    muteBtn.classList.remove('active');
-                }
-            }
-
-            // If exclusive solo, update all other solo buttons
+            // If exclusive solo, clear all other solo buttons
             if (exclusive && isSoloed) {
-                document.querySelectorAll('.solo-btn').forEach(btn => {
-                    if (btn.dataset.stemId !== stemId) {
-                        btn.classList.remove('active');
-                    }
-                });
+                clearAllSoloButtons(stemId);
             }
         }
     });
@@ -269,15 +252,7 @@ function actionToggleStemMute(stemIndex) {
     const isMuted = audioEngine.toggleMute(stem.id);
 
     // Update UI
-    const muteBtn = document.querySelector(`.mute-btn[data-stem-id="${stem.id}"]`);
-    const soloBtn = document.querySelector(`.solo-btn[data-stem-id="${stem.id}"]`);
-
-    if (muteBtn) {
-        muteBtn.classList.toggle('active', isMuted);
-    }
-    if (soloBtn && isMuted) {
-        soloBtn.classList.remove('active');
-    }
+    updateStemButtons(stem.id, { mute: isMuted, solo: isMuted ? false : undefined });
 }
 
 /**
@@ -294,23 +269,11 @@ function actionToggleStemSolo(stemIndex) {
     const isSoloed = audioEngine.toggleSolo(stem.id, true); // Exclusive
 
     // Update UI
-    const soloBtn = document.querySelector(`.solo-btn[data-stem-id="${stem.id}"]`);
-    const muteBtn = document.querySelector(`.mute-btn[data-stem-id="${stem.id}"]`);
-
-    if (soloBtn) {
-        soloBtn.classList.toggle('active', isSoloed);
-    }
-    if (muteBtn && isSoloed) {
-        muteBtn.classList.remove('active');
-    }
+    updateStemButtons(stem.id, { solo: isSoloed, mute: isSoloed ? false : undefined });
 
     // Clear all other solo buttons if soloed
     if (isSoloed) {
-        document.querySelectorAll('.solo-btn').forEach(btn => {
-            if (btn.dataset.stemId !== stem.id) {
-                btn.classList.remove('active');
-            }
-        });
+        clearAllSoloButtons(stem.id);
     }
 }
 
@@ -321,13 +284,10 @@ function actionMuteAll() {
     if (!audioEngine) return;
 
     const stems = audioEngine.getStems();
-    stems.forEach((stem, index) => {
+    stems.forEach(stem => {
         audioEngine.setMute(stem.id, true);
-        const muteBtn = document.querySelector(`.mute-btn[data-stem-id="${stem.id}"]`);
-        if (muteBtn) {
-            muteBtn.classList.add('active');
-        }
     });
+    updateAllStemButtons(stems, { mute: true });
 
     showNotification('All tracks muted. Press U to unmute all.');
 }
@@ -339,18 +299,11 @@ function actionUnmuteAll() {
     if (!audioEngine) return;
 
     const stems = audioEngine.getStems();
-    stems.forEach((stem, index) => {
+    stems.forEach(stem => {
         audioEngine.setMute(stem.id, false);
         audioEngine.setSolo(stem.id, false);
-        const muteBtn = document.querySelector(`.mute-btn[data-stem-id="${stem.id}"]`);
-        const soloBtn = document.querySelector(`.solo-btn[data-stem-id="${stem.id}"]`);
-        if (muteBtn) {
-            muteBtn.classList.remove('active');
-        }
-        if (soloBtn) {
-            soloBtn.classList.remove('active');
-        }
     });
+    updateAllStemButtons(stems, { mute: false, solo: false });
 
     showNotification('All tracks unmuted. Press M to mute all.');
 }

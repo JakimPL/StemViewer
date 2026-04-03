@@ -282,6 +282,68 @@ function updatePlayButtonIcon(isPlaying) {
     }
 }
 
+/**
+ * Get stem button element
+ * @param {string} stemId - Stem identifier
+ * @param {string} type - Button type ('mute' or 'solo')
+ * @returns {HTMLElement|null} Button element or null if not found
+ */
+function getStemButton(stemId, type) {
+    const className = type === 'mute' ? 'mute-btn' : 'solo-btn';
+    return document.querySelector(`.${className}[data-stem-id="${stemId}"]`);
+}
+
+/**
+ * Update a single stem button state
+ * @param {string} stemId - Stem identifier
+ * @param {string} type - Button type ('mute' or 'solo')
+ * @param {boolean} isActive - Whether button should be active
+ */
+function updateStemButton(stemId, type, isActive) {
+    const button = getStemButton(stemId, type);
+    if (button) {
+        button.classList.toggle('active', isActive);
+    }
+}
+
+/**
+ * Update stem buttons for a single stem (both mute and solo)
+ * @param {string} stemId - Stem identifier
+ * @param {Object} states - Button states { mute: boolean, solo: boolean }
+ */
+function updateStemButtons(stemId, states) {
+    if (states.mute !== undefined) {
+        updateStemButton(stemId, 'mute', states.mute);
+    }
+    if (states.solo !== undefined) {
+        updateStemButton(stemId, 'solo', states.solo);
+    }
+}
+
+/**
+ * Update all stem buttons (for mute all / unmute all operations)
+ * @param {Array} stems - Array of stem objects from audioEngine.getStems()
+ * @param {Object} states - Button states to apply to all { mute: boolean, solo: boolean }
+ */
+function updateAllStemButtons(stems, states) {
+    stems.forEach(stem => {
+        updateStemButtons(stem.id, states);
+    });
+}
+
+/**
+ * Clear all solo buttons except optionally one
+ * @param {string} exceptStemId - Stem ID to exclude from clearing (optional)
+ */
+function clearAllSoloButtons(exceptStemId = null) {
+    document.querySelectorAll('.solo-btn').forEach(btn => {
+        if (exceptStemId && btn.dataset.stemId === exceptStemId) {
+            return; // Skip this one
+        }
+        btn.classList.remove('active');
+    });
+}
+
 export {
     adjustStemHeights,
     updateSongHeader,
@@ -293,5 +355,10 @@ export {
     updatePlayhead,
     updatePlayheadVisibility,
     updateActiveSection,
-    updatePlayButtonIcon
+    updatePlayButtonIcon,
+    getStemButton,
+    updateStemButton,
+    updateStemButtons,
+    updateAllStemButtons,
+    clearAllSoloButtons
 };
