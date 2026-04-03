@@ -49,6 +49,9 @@ function initializeUI() {
     // Update section markers
     updateSectionMarkers();
 
+    // Update time ruler
+    updateTimeRuler();
+
     // Update metadata panel
     updateMetadataPanel();
 
@@ -195,6 +198,57 @@ function createSectionMarker(section) {
 }
 
 /**
+ * Update time ruler with bar and time markers
+ */
+function updateTimeRuler() {
+    const rulerContainer = document.getElementById('time-ruler');
+    if (!rulerContainer) return;
+
+    rulerContainer.innerHTML = ''; // Clear existing markers
+
+    const duration = manifest.song.duration;
+    const bpm = manifest.song.bpm;
+    const beatsPerBar = manifest.song.timeSignature.split('/')[0];
+
+    // Calculate bar duration (in seconds)
+    const beatDuration = 60 / bpm; // Duration of one beat
+    const barDuration = beatDuration * beatsPerBar; // Duration of one bar
+
+    // Number of bars in the song
+    const totalBars = Math.ceil(duration / barDuration);
+
+    // Calculate appropriate bar interval (power of 2)
+    const rulerWidth = rulerContainer.offsetWidth || 800; // Fallback to 800 if not rendered
+    const minSpacing = 80; // Minimum pixels between markers
+    const maxMarkers = Math.floor(rulerWidth / minSpacing);
+
+    // Find smallest power of 2 that gives us maxMarkers or fewer
+    let barInterval = 1;
+    while (totalBars / barInterval > maxMarkers && barInterval < totalBars) {
+        barInterval *= 2;
+    }
+
+    // Draw bar markers at intervals
+    for (let bar = 0; bar <= totalBars; bar += barInterval) {
+        const timeInSeconds = bar * barDuration;
+        if (timeInSeconds > duration) break;
+
+        const positionPercent = (timeInSeconds / duration) * 100;
+
+        const marker = document.createElement('div');
+        marker.className = 'time-marker bar-marker';
+        marker.style.left = `${positionPercent}%`;
+
+        const label = document.createElement('span');
+        label.className = 'time-label';
+        label.textContent = `Bar ${bar + 1}`;
+
+        marker.appendChild(label);
+        rulerContainer.appendChild(marker);
+    }
+}
+
+/**
  * Update metadata panel with song details
  */
 function updateMetadataPanel() {
@@ -280,6 +334,38 @@ function setupEventListeners() {
         audioEngine.stop();
         updatePlayButtonIcon(false); // Show play icon
         stopBtn.disabled = true;
+    });
+
+    // Stem controls (using event delegation since they're dynamically created)
+    const stemsSidebar = document.querySelector('.stems-sidebar');
+
+    stemsSidebar.addEventListener('click', (e) => {
+        if (!audioEngine) return;
+
+        const muteBtn = e.target.closest('.mute-btn');
+        const soloBtn = e.target.closest('.solo-btn');
+
+        if (muteBtn) {
+            const stemId = muteBtn.dataset.stemId;
+            const isMuted = audioEngine.toggleMute(stemId);
+            muteBtn.classList.toggle('active', isMuted);
+        } else if (soloBtn) {
+            const stemId = soloBtn.dataset.stemId;
+            const exclusive = !e.shiftKey; // Exclusive solo unless Shift is pressed
+            const isSoloed = audioEngine.toggleSolo(stemId, exclusive);
+
+            // Update button state
+            soloBtn.classList.toggle('active', isSoloed);
+
+            // If exclusive solo, update all other solo buttons
+            if (exclusive && isSoloed) {
+                document.querySelectorAll('.solo-btn').forEach(btn => {
+                    if (btn.dataset.stemId !== stemId) {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+        }
     });
 }
 

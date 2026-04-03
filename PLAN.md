@@ -75,11 +75,15 @@ Waveform data is extracted client-side from AudioBuffer using Web Audio API getC
 - Canvas 2D rendering (WebGL deferred)
 - Time ruler shows minutes/seconds; bar ruler shows bar numbers
 
+**Code Standards**
+1. **Modularity** - Avoid spaghetti code by organizing into classes and functions with a single clear objective
+2. **DRY Principle** - Avoid duplicated code through proper abstraction of reusable elements
+3. **Clear responsibilities** - Each module/class should have one primary purpose
+4. **Reusable utilities** - Extract common patterns into utility functions
+
 **Further Considerations**
 1. **Waveform generation tool** - Include Node.js script to generate waveform.json from MP3s? *Recommend: defer, assume user provides*
 2. **Pre-rendered mix fallback** - Load single mix.mp3 when stems unavailable? *Recommend: defer to future enhancement*
 3. **Beat grid** - Show beat subdivisions beyond bars? *Recommend: bars only initially*
 4. **Keyboard shortcuts** - Space for play/pause, arrows for seek? *Recommend: add in Phase 6-7*
 5. **Multi-resolution waveforms** - Support multiple samplesPerPeak levels for zoom? *Recommend: single resolution (512), add LOD only if performance issues*
-
-Does this plan look good? Any adjustments needed before we start implementation?

@@ -25,25 +25,40 @@
         <!-- Waveform Area with Integrated Stem Controls -->
         <div class="waveform-container">
             <!-- Section markers appear above the waveform -->
-            <div class="section-markers">
-                <!-- Populated dynamically from manifest.json -->
+            <div class="section-markers-row">
+                <div class="markers-spacer"></div>
+                <div class="section-markers">
+                    <!-- Populated dynamically from manifest.json -->
+                </div>
             </div>
 
             <div class="waveform-content">
-                <!-- Left sidebar with stem controls -->
-                <div class="stems-sidebar">
-                    <!-- Populated dynamically from manifest.json -->
+                <div class="waveform-spacer">
+                    <!-- Left sidebar with stem controls -->
+                    <div class="stems-sidebar">
+                        <!-- Populated dynamically from manifest.json -->
+                    </div>
                 </div>
 
-                <!-- Main waveform canvas -->
-                <canvas id="waveform-canvas"></canvas>
+                <div class="waveform-canvas-wrapper">
+                    <!-- Main waveform canvas -->
+                    <canvas id="waveform-canvas"></canvas>
 
-                <!-- Time display overlay -->
-                <div class="time-display">
-                    <span class="current-time">0:00</span>
-                    <span class="time-separator">/</span>
-                    <span class="total-time">3:45</span>
-                    <span class="current-bar">Bar 1</span>
+                    <!-- Time display overlay -->
+                    <div class="time-display">
+                        <span class="current-time">0:00</span>
+                        <span class="time-separator">/</span>
+                        <span class="total-time">3:45</span>
+                        <span class="current-bar">Bar 1</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time Ruler -->
+            <div class="time-ruler-row">
+                <div class="ruler-spacer"></div>
+                <div class="time-ruler" id="time-ruler">
+                    <!-- Bar/time markers will be drawn here by JavaScript -->
                 </div>
             </div>
         </div>
