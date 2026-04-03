@@ -108,7 +108,12 @@ export class WaveformRenderer {
                 // Get amplitude - use real data if available, otherwise show placeholder
                 let amplitude;
                 if (stemBuffers && stemBuffers[stemIndex]) {
-                    amplitude = this._getAmplitudeAtPosition(stemBuffers[stemIndex], i / barCount);
+                    amplitude = this._getAmplitudeAtPosition(
+                        stemBuffers[stemIndex],
+                        i / barCount,
+                        this.manifest.song.duration,
+                        barCount
+                    );
                     this.ctx.fillStyle = color;
                     this.ctx.globalAlpha = WAVEFORM_STEM_ALPHA;
                 } else {
@@ -249,18 +254,32 @@ export class WaveformRenderer {
      * Calculate amplitude at a specific position in the audio buffer
      * @param {AudioBuffer} buffer - Audio buffer
      * @param {number} position - Position (0-1) in the buffer
+     * @param {number} timelineDurationSeconds - Manifest timeline duration in seconds
+     * @param {number} barCount - Number of rendered bars across the timeline
      * @returns {number} Amplitude (0-1)
      * @private
      */
-    _getAmplitudeAtPosition(buffer, position) {
+    _getAmplitudeAtPosition(buffer, position, timelineDurationSeconds, barCount) {
         const channelData = buffer.getChannelData(0); // Use first channel (mono or left)
         const sampleCount = channelData.length;
+        const sampleRate = buffer.sampleRate;
 
-        // Calculate which samples to analyze for this position
-        // We want to downsample the buffer to match our bar count
-        const barCount = Math.floor(this.canvas.width / this.pixelsPerBar);
-        const samplesPerBar = Math.floor(sampleCount / barCount);
-        const startSample = Math.floor(position * sampleCount);
+        // Map visualization position to absolute manifest timeline time.
+        // Playback seeks by absolute seconds, so waveform sampling must do the same.
+        if (!timelineDurationSeconds || timelineDurationSeconds <= 0 || !barCount || barCount <= 0) {
+            return 0;
+        }
+
+        const timelineTimeSeconds = position * timelineDurationSeconds;
+        const secondsPerVisualBar = timelineDurationSeconds / barCount;
+
+        const startSample = Math.floor(timelineTimeSeconds * sampleRate);
+        const samplesPerBar = Math.max(1, Math.floor(secondsPerVisualBar * sampleRate));
+
+        if (startSample >= sampleCount) {
+            return 0;
+        }
+
         const endSample = Math.min(startSample + samplesPerBar, sampleCount);
 
         // Calculate RMS (root mean square) amplitude for this window
