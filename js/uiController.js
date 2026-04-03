@@ -5,6 +5,11 @@
 
 import { formatTime } from './utils.js';
 
+const STEM_ITEM_MIN_HEIGHT_PX = 60;
+const STEM_ITEM_MAX_HEIGHT_PX = 180;
+const TIME_RULER_FALLBACK_WIDTH_PX = 800;
+const TIME_RULER_MIN_MARKER_SPACING_PX = 80;
+
 export class UIController {
     /**
      * @param {Object} manifest - Song manifest data
@@ -49,18 +54,15 @@ export class UIController {
         const availableHeight = sidebar.clientHeight;
         const stemCount = stemItems.length;
 
-        const MIN_HEIGHT = 60;
-        const MAX_HEIGHT = 180;
-
-        const minTotalHeight = stemCount * MIN_HEIGHT;
+        const minTotalHeight = stemCount * STEM_ITEM_MIN_HEIGHT_PX;
 
         let finalHeight;
 
         if (minTotalHeight > availableHeight) {
-            finalHeight = MIN_HEIGHT;
+            finalHeight = STEM_ITEM_MIN_HEIGHT_PX;
         } else {
             const idealHeight = availableHeight / stemCount;
-            finalHeight = Math.min(MAX_HEIGHT, idealHeight);
+            finalHeight = Math.min(STEM_ITEM_MAX_HEIGHT_PX, idealHeight);
         }
 
         stemItems.forEach(item => {
@@ -119,8 +121,8 @@ export class UIController {
 
         rulerContainer.innerHTML = '';
 
-        const rulerWidth = rulerContainer.offsetWidth || 800;
-        const markers = this.songMetrics.generateBarMarkers(rulerWidth, 80);
+        const rulerWidth = rulerContainer.offsetWidth || TIME_RULER_FALLBACK_WIDTH_PX;
+        const markers = this.songMetrics.generateBarMarkers(rulerWidth, TIME_RULER_MIN_MARKER_SPACING_PX);
 
         markers.forEach(({ barNumber, positionPercent }) => {
             const marker = document.createElement('div');

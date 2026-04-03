@@ -3,6 +3,28 @@
  * Handles all canvas-based waveform visualization
  */
 
+const CANVAS_HORIZONTAL_OFFSET_PX = 1;
+const WAVEFORM_BACKGROUND_COLOR = '#1e1e1e';
+const WAVEFORM_STEM_ALPHA = 0.7;
+const WAVEFORM_PLACEHOLDER_ALPHA = 0.3;
+const WAVEFORM_PLACEHOLDER_AMPLITUDE = 0.3;
+const WAVEFORM_HEIGHT_SCALE = 0.5;
+const WAVEFORM_TEXT_COLOR = '#666';
+const WAVEFORM_TEXT_FONT = '14px Arial';
+const WAVEFORM_RMS_SCALE = 3.5;
+
+const GRID_RULER_MIN_SPACING_PX = 80;
+const GRID_DENSITY_MULTIPLIER = 4;
+const GRID_MAJOR_LINE_COLOR = 'rgba(160, 170, 180, 0.30)';
+const GRID_MINOR_LINE_COLOR = 'rgba(110, 120, 130, 0.16)';
+const GRID_MAJOR_LINE_WIDTH = 1.2;
+const GRID_MINOR_LINE_WIDTH = 1;
+
+const SECTION_DIVIDER_UNDERLAY_COLOR = 'rgba(0, 0, 0, 0.55)';
+const SECTION_DIVIDER_UNDERLAY_WIDTH = 5;
+const SECTION_DIVIDER_COLOR = '#8fa1ad';
+const SECTION_DIVIDER_WIDTH = 2.5;
+
 /**
  * WaveformRenderer class - Manages canvas-based waveform visualization
  */
@@ -19,6 +41,7 @@ export class WaveformRenderer {
         this.manifest = manifest;
         this.songMetrics = songMetrics;
         this.pixelsPerBar = pixelsPerBar;
+        this.canvasOffsetX = CANVAS_HORIZONTAL_OFFSET_PX;
         this.audioEngine = null;
         this.ctx = canvasElement ? canvasElement.getContext('2d') : null;
     }
@@ -59,7 +82,7 @@ export class WaveformRenderer {
         if (!this.canvas || !this.ctx || !this.manifest) return;
 
         // Clear canvas
-        this.ctx.fillStyle = '#1e1e1e';
+        this.ctx.fillStyle = WAVEFORM_BACKGROUND_COLOR;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         // Calculate bar count based on canvas width and granularity
@@ -87,18 +110,18 @@ export class WaveformRenderer {
                 if (stemBuffers && stemBuffers[stemIndex]) {
                     amplitude = this._getAmplitudeAtPosition(stemBuffers[stemIndex], i / barCount);
                     this.ctx.fillStyle = color;
-                    this.ctx.globalAlpha = 0.7;
+                    this.ctx.globalAlpha = WAVEFORM_STEM_ALPHA;
                 } else {
                     // Placeholder: flat gray bars at 30% height
-                    amplitude = 0.3;
+                    amplitude = WAVEFORM_PLACEHOLDER_AMPLITUDE;
                     this.ctx.fillStyle = '#444';
-                    this.ctx.globalAlpha = 0.3;
+                    this.ctx.globalAlpha = WAVEFORM_PLACEHOLDER_ALPHA;
                 }
 
-                const height = stemHeight * amplitude * 0.5;
+                const height = stemHeight * amplitude * WAVEFORM_HEIGHT_SCALE;
                 const y = currentY + (stemHeight - height) / 2;
 
-                this.ctx.fillRect(i * barWidth, y, barWidth - 1, height);
+                this.ctx.fillRect(i * barWidth + this.canvasOffsetX, y, barWidth - 1, height);
 
                 currentY += stemHeight;
             });
@@ -106,15 +129,18 @@ export class WaveformRenderer {
 
         this.ctx.globalAlpha = 1;
 
+        // Draw adaptive bar grid (4x denser than bottom ruler where possible)
+        this._drawBarGrid();
+
         // If no real data, show instruction text
         if (!stemBuffers) {
-            this.ctx.fillStyle = '#666';
-            this.ctx.font = '14px Arial';
+            this.ctx.fillStyle = WAVEFORM_TEXT_COLOR;
+            this.ctx.font = WAVEFORM_TEXT_FONT;
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
             this.ctx.fillText(
                 'Click Play or click anywhere on the timeline to load waveforms',
-                this.canvas.width / 2,
+                this.canvas.width / 2 + this.canvasOffsetX,
                 this.canvas.height / 2
             );
         }
@@ -131,7 +157,8 @@ export class WaveformRenderer {
     getTimeAtPosition(x) {
         if (!this.canvas || !this.manifest) return 0;
 
-        const percentage = x / this.canvas.width;
+        const adjustedX = Math.max(0, Math.min(this.canvas.width, x - this.canvasOffsetX));
+        const percentage = adjustedX / this.canvas.width;
         return percentage * this.manifest.song.duration;
     }
 
@@ -142,18 +169,61 @@ export class WaveformRenderer {
     _drawSectionDividers() {
         if (!this.manifest || !this.songMetrics) return;
 
-        this.ctx.strokeStyle = '#555';
-        this.ctx.lineWidth = 2;
-
         const sectionsWithPos = this.songMetrics.getSectionsWithPositions();
 
         sectionsWithPos.forEach(section => {
-            const x = (section.leftPercent / 100) * this.canvas.width;
+            const x = (section.leftPercent / 100) * this.canvas.width + this.canvasOffsetX;
+
+            // Underlay for contrast against bright waveform areas
+            this.ctx.strokeStyle = SECTION_DIVIDER_UNDERLAY_COLOR;
+            this.ctx.lineWidth = SECTION_DIVIDER_UNDERLAY_WIDTH;
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.stroke();
+
+            // Foreground section divider
+            this.ctx.strokeStyle = SECTION_DIVIDER_COLOR;
+            this.ctx.lineWidth = SECTION_DIVIDER_WIDTH;
             this.ctx.beginPath();
             this.ctx.moveTo(x, 0);
             this.ctx.lineTo(x, this.canvas.height);
             this.ctx.stroke();
         });
+    }
+
+    /**
+     * Draw vertical bar grid lines on waveform area
+     * Grid targets 4x more lines than bottom ruler while staying adaptive.
+     * @private
+     */
+    _drawBarGrid() {
+        if (!this.songMetrics) return;
+
+        const rulerMarkers = this.songMetrics.generateBarMarkers(this.canvas.width, GRID_RULER_MIN_SPACING_PX);
+        if (rulerMarkers.length === 0) return;
+
+        const rulerInterval = rulerMarkers.length > 1
+            ? Math.max(1, rulerMarkers[1].barNumber - rulerMarkers[0].barNumber)
+            : 1;
+
+        // 4x denser than ruler, but keep whole-bar spacing and minimum 1 bar.
+        const gridInterval = Math.max(1, Math.floor(rulerInterval / GRID_DENSITY_MULTIPLIER));
+
+        for (let bar = 0; bar <= this.songMetrics.totalBars; bar += gridInterval) {
+            const timeInSeconds = this.songMetrics.barToTime(bar);
+            if (timeInSeconds > this.songMetrics.duration) break;
+
+            const x = (this.songMetrics.timeToPercent(timeInSeconds) / 100) * this.canvas.width + this.canvasOffsetX;
+            const isRulerLine = bar % rulerInterval === 0;
+
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.strokeStyle = isRulerLine ? GRID_MAJOR_LINE_COLOR : GRID_MINOR_LINE_COLOR;
+            this.ctx.lineWidth = isRulerLine ? GRID_MAJOR_LINE_WIDTH : GRID_MINOR_LINE_WIDTH;
+            this.ctx.stroke();
+        }
     }
 
     /**
@@ -207,7 +277,7 @@ export class WaveformRenderer {
 
         // Normalize and apply scaling for better visibility
         // RMS values are typically 0-0.3 for normal audio, so we scale up
-        const normalized = Math.min(rms * 3.5, 1.0);
+        const normalized = Math.min(rms * WAVEFORM_RMS_SCALE, 1.0);
 
         return normalized;
     }

@@ -196,7 +196,7 @@ body {
 .section-marker {
     position: absolute;
     height: 100%;
-    border-left: 2px solid #555;
+    border-left: 3px solid #7b8f9a;
     padding: 8px 12px;
     display: flex;
     align-items: center;
@@ -205,7 +205,8 @@ body {
 }
 
 .section-marker.active {
-    border-left-color: #6b8fa3;
+    border-left-color: #86a9bf;
+    border-left-width: 4px;
 }
 
 .section-marker:hover,
@@ -227,9 +228,9 @@ body {
 }
 
 .section-marker.active .section-label {
-    color: #88b4d4;
-    border-color: #556673;
-    background-color: rgba(107, 143, 163, 0.1);
+    color: #7698ae;
+    border-color: #4e5f6b;
+    background-color: rgba(93, 119, 136, 0.1);
 }
 
 .section-marker:hover .section-label,
@@ -302,6 +303,7 @@ body {
     pointer-events: none;
     z-index: 10;
     opacity: 0;
+    transform: translateX(2px);
     transition: opacity 0.2s ease;
 }
 
@@ -319,6 +321,7 @@ body {
     pointer-events: none;
     z-index: 90;
     opacity: 0;
+    transform: translateX(2px);
     transition: opacity 0.15s ease;
 }
 
