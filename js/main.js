@@ -10,6 +10,7 @@ import { WaveformRenderer } from './waveformRenderer.js';
 import { SongMetrics } from './songMetrics.js';
 import { UIController } from './uiController.js';
 import { KeyboardController } from './keyboardController.js';
+import { NotificationManager } from './notifications.js';
 
 // Application state
 let manifest = null;
@@ -33,7 +34,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         uiController = new UIController(manifest, songMetrics, () => audioEngine);
 
         // Create keyboard controller
-        keyboardController = new KeyboardController(() => audioEngine, uiController, manifest, showNotification);
+        keyboardController = new KeyboardController(
+            () => audioEngine,
+            uiController,
+            manifest,
+            NotificationManager.show
+        );
 
         // Initialize UI with manifest data
         initializeUI();
@@ -51,7 +57,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     } catch (error) {
         console.error('Failed to initialize application:', error);
-        showError('Failed to load song data. Please check the console for details.');
+        NotificationManager.error('Failed to load song data. Please check the console for details.');
     }
 });
 
@@ -328,47 +334,9 @@ async function initializeAudio() {
     } catch (error) {
         console.error('Failed to load audio:', error);
         console.error('Error stack:', error.stack);
-        showError('Failed to load audio files. Check console for details.');
+        NotificationManager.error('Failed to load audio files. Check console for details.');
         // Re-enable play button even on error so user can try again
         document.getElementById('play-btn').disabled = false;
     }
 }
 
-/**
- * Show error message to user
- * @param {string} message - Error message
- */
-function showError(message) {
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error-overlay';
-    errorDiv.textContent = message;
-    document.body.appendChild(errorDiv);
-}
-
-/**
- * Show temporary notification message to user
- * @param {string} message - Notification message
- * @param {number} duration - Duration in milliseconds (default 3000)
- */
-function showNotification(message, duration = 3000) {
-    // Remove any existing notification first
-    const existingNotification = document.querySelector('.notification-overlay');
-    if (existingNotification) {
-        document.body.removeChild(existingNotification);
-    }
-
-    const notificationDiv = document.createElement('div');
-    notificationDiv.className = 'notification-overlay';
-    notificationDiv.textContent = message;
-    document.body.appendChild(notificationDiv);
-
-    // Fade out and remove after duration
-    setTimeout(() => {
-        notificationDiv.style.opacity = '0';
-        setTimeout(() => {
-            if (notificationDiv.parentNode) {
-                document.body.removeChild(notificationDiv);
-            }
-        }, 300); // Wait for fade transition to complete
-    }, duration);
-}
