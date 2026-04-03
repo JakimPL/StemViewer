@@ -94,14 +94,14 @@ function createStemItem(stem) {
 /**
  * Update section markers from manifest
  */
-function updateSectionMarkers(manifest, audioEngine, updatePlayButtonIcon) {
+function updateSectionMarkers(manifest, getAudioEngine, updatePlayButtonIcon) {
     const sectionsContainer = document.querySelector('.section-markers');
     sectionsContainer.innerHTML = ''; // Clear existing markers
 
     const sectionsWithPos = calculateSectionPositions(manifest.sections, manifest.song.duration);
 
     sectionsWithPos.forEach(section => {
-        const marker = createSectionMarker(section, audioEngine, updatePlayButtonIcon);
+        const marker = createSectionMarker(section, getAudioEngine, updatePlayButtonIcon);
         sectionsContainer.appendChild(marker);
     });
 }
@@ -111,7 +111,7 @@ function updateSectionMarkers(manifest, audioEngine, updatePlayButtonIcon) {
  * @param {Object} section - Section data with position percentages
  * @returns {HTMLElement} Section marker element
  */
-function createSectionMarker(section, audioEngine, updatePlayButtonIcon) {
+function createSectionMarker(section, getAudioEngine, updatePlayButtonIcon) {
     const div = document.createElement('div');
     div.className = 'section-marker';
     div.style.left = `${section.leftPercent}%`;
@@ -127,6 +127,7 @@ function createSectionMarker(section, audioEngine, updatePlayButtonIcon) {
 
     // Add click handler to seek to section and start playing
     div.addEventListener('click', async () => {
+        const audioEngine = getAudioEngine(); // Get current audioEngine reference
         if (!audioEngine) return;
 
         const wasPlaying = audioEngine.getState().isPlaying;
@@ -148,52 +149,29 @@ function createSectionMarker(section, audioEngine, updatePlayButtonIcon) {
 /**
  * Update time ruler with bar and time markers
  */
-function updateTimeRuler(manifest) {
+function updateTimeRuler(manifest, songMetrics) {
     const rulerContainer = document.getElementById('time-ruler');
     if (!rulerContainer) return;
 
     rulerContainer.innerHTML = ''; // Clear existing markers
 
-    const duration = manifest.song.duration;
-    const bpm = manifest.song.bpm;
-    const beatsPerBar = manifest.song.timeSignature.split('/')[0];
-
-    // Calculate bar duration (in seconds)
-    const beatDuration = 60 / bpm; // Duration of one beat
-    const barDuration = beatDuration * beatsPerBar; // Duration of one bar
-
-    // Number of bars in the song
-    const totalBars = Math.ceil(duration / barDuration);
-
-    // Calculate appropriate bar interval (power of 2)
+    // Calculate appropriate bar interval and get markers
     const rulerWidth = rulerContainer.offsetWidth || 800; // Fallback to 800 if not rendered
-    const minSpacing = 80; // Minimum pixels between markers
-    const maxMarkers = Math.floor(rulerWidth / minSpacing);
+    const markers = songMetrics.generateBarMarkers(rulerWidth, 80);
 
-    // Find smallest power of 2 that gives us maxMarkers or fewer
-    let barInterval = 1;
-    while (totalBars / barInterval > maxMarkers && barInterval < totalBars) {
-        barInterval *= 2;
-    }
-
-    // Draw bar markers at intervals
-    for (let bar = 0; bar <= totalBars; bar += barInterval) {
-        const timeInSeconds = bar * barDuration;
-        if (timeInSeconds > duration) break;
-
-        const positionPercent = (timeInSeconds / duration) * 100;
-
+    // Draw bar markers
+    markers.forEach(({ barNumber, positionPercent }) => {
         const marker = document.createElement('div');
         marker.className = 'time-marker bar-marker';
         marker.style.left = `${positionPercent}%`;
 
         const label = document.createElement('span');
         label.className = 'time-label';
-        label.textContent = `Bar ${bar + 1}`;
+        label.textContent = `Bar ${barNumber}`;
 
         marker.appendChild(label);
         rulerContainer.appendChild(marker);
-    }
+    });
 }
 
 /**
@@ -227,15 +205,15 @@ function updateMetadataPanel(manifest) {
  * Update time display
  * @param {number} currentTime - Current time in seconds
  */
-function updateTimeDisplay(manifest, currentTime = 0) {
+function updateTimeDisplay(manifest, songMetrics, currentTime = 0) {
     const { song } = manifest;
 
     document.querySelector('.current-time').textContent = formatTime(currentTime);
     document.querySelector('.total-time').textContent =
         song.durationFormatted || formatTime(song.duration);
 
-    // Calculate bar number (simplified, will be more accurate with bpm later)
-    const barNumber = Math.floor(currentTime / (60 / song.bpm * 4)) + 1;
+    // Calculate bar number using songMetrics
+    const barNumber = songMetrics.timeToBarNumber(currentTime);
     document.querySelector('.current-bar').textContent = `Bar ${barNumber}`;
 }
 
@@ -243,13 +221,11 @@ function updateTimeDisplay(manifest, currentTime = 0) {
  * Update playhead position based on current time
  * @param {number} currentTime - Current time in seconds
  */
-function updatePlayhead(manifest, currentTime = 0) {
+function updatePlayhead(songMetrics, currentTime = 0) {
     const playhead = document.getElementById('playhead');
     if (!playhead) return;
 
-    const duration = manifest.song.duration;
-    const positionPercent = (currentTime / duration) * 100;
-
+    const positionPercent = songMetrics.timeToPercent(currentTime);
     playhead.style.left = `${positionPercent}%`;
 }
 
@@ -273,13 +249,8 @@ function updatePlayheadVisibility(state) {
  * Update active section highlighting based on current time
  * @param {number} currentTime - Current time in seconds
  */
-function updateActiveSection(manifest, currentTime = 0) {
-    const sections = manifest.sections;
-
-    // Find which section we're currently in
-    const currentSection = sections.find(section =>
-        currentTime >= section.startTime && currentTime < section.endTime
-    );
+function updateActiveSection(songMetrics, currentTime = 0) {
+    const currentSection = songMetrics.getCurrentSection(currentTime);
 
     // Update visual state of all section markers
     document.querySelectorAll('.section-marker').forEach(marker => {

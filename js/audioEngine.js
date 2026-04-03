@@ -129,6 +129,11 @@ export class AudioEngine {
      * @returns {Promise<void>}
      */
     async loadFromManifest(manifest) {
+        // Set duration from manifest (before decoding)
+        if (manifest.song && manifest.song.duration) {
+            this.state.duration = manifest.song.duration;
+        }
+
         const promises = [];
 
         // Load all stems in parallel

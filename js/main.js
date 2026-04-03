@@ -7,6 +7,7 @@ import { loadManifest, resolveAudioPath } from './dataLoader.js';
 import { formatTime, calculateSectionPositions } from './utils.js';
 import { AudioEngine } from './audioEngine.js';
 import { WaveformRenderer } from './waveformRenderer.js';
+import { SongMetrics } from './songMetrics.js';
 import {
     adjustStemHeights,
     updateSongHeader,
@@ -25,6 +26,7 @@ import {
 let manifest = null;
 let audioEngine = null;
 let waveformRenderer = null;
+let songMetrics = null;
 
 // Initialize application when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
@@ -32,6 +34,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Load manifest data
         manifest = await loadManifest();
         console.log('Manifest loaded:', manifest);
+
+        // Create song metrics helper
+        songMetrics = new SongMetrics(manifest);
 
         // Initialize UI with manifest data
         initializeUI();
@@ -64,16 +69,16 @@ function initializeUI() {
     updateStemsList(manifest);
 
     // Update section markers
-    updateSectionMarkers(manifest, audioEngine, updatePlayButtonIcon);
+    updateSectionMarkers(manifest, () => audioEngine, updatePlayButtonIcon);
 
     // Update time ruler
-    updateTimeRuler(manifest);
+    updateTimeRuler(manifest, songMetrics);
 
     // Update metadata panel
     updateMetadataPanel(manifest);
 
     // Update time display
-    updateTimeDisplay(manifest, 0); // Start at 0:00
+    updateTimeDisplay(manifest, songMetrics, 0); // Start at 0:00
 
     // Adjust stem heights after layout is complete
     requestAnimationFrame(() => {
@@ -134,7 +139,7 @@ function setupEventListeners() {
         audioEngine.stop();
         updatePlayButtonIcon(false); // Show play icon
         stopBtn.disabled = true;
-        updatePlayhead(manifest, 0); // Reset playhead to beginning
+        updatePlayhead(songMetrics, 0); // Reset playhead to beginning
     });
 
     // Stem controls (using event delegation since they're dynamically created)
@@ -518,7 +523,7 @@ function setupWaveformTooltip() {
         const time = percentage * manifest.song.duration;
 
         // Calculate bar and beat from time
-        const { bar, beat } = calculateBarBeat(time, manifest.song.bpm, manifest.song.timeSignature);
+        const { bar, beat } = songMetrics.timeToBarBeat(time);
 
         // Update tooltip content
         tooltip.querySelector('.tooltip-time').textContent = formatTime(time);
@@ -561,8 +566,8 @@ function setupWaveformTooltip() {
         const mouseX = e.clientX - rect.left;
 
         // Calculate time from mouse X position
-        const percentage = mouseX / rect.width;
-        const time = percentage * manifest.song.duration;
+        const percentage = (mouseX / rect.width) * 100;
+        const time = songMetrics.percentToTime(percentage);
 
         // Seek to the clicked time
         const wasPlaying = audioEngine.getState().isPlaying;
@@ -575,27 +580,6 @@ function setupWaveformTooltip() {
             document.getElementById('stop-btn').disabled = false;
         }
     });
-}
-
-/**
- * Calculate bar and beat from time
- * @param {number} time - Time in seconds
- * @param {number} bpm - Beats per minute
- * @param {string} timeSignature - Time signature (e.g., "4/4")
- * @returns {Object} { bar, beat } - 1-indexed bar and beat numbers
- */
-function calculateBarBeat(time, bpm, timeSignature) {
-    const [beatsPerBar] = timeSignature.split('/').map(Number);
-
-    // Calculate total beats elapsed
-    const secondsPerBeat = 60 / bpm;
-    const totalBeats = time / secondsPerBeat;
-
-    // Calculate bar (1-indexed) and beat within bar (1-indexed)
-    const bar = Math.floor(totalBeats / beatsPerBar) + 1;
-    const beat = Math.floor(totalBeats % beatsPerBar) + 1;
-
-    return { bar, beat };
 }
 
 /**
@@ -613,9 +597,9 @@ async function initializeAudio() {
     });
 
     audioEngine.on('timeupdate', (time) => {
-        updateTimeDisplay(manifest, time);
-        updatePlayhead(manifest, time);
-        updateActiveSection(manifest, time);
+        updateTimeDisplay(manifest, songMetrics, time);
+        updatePlayhead(songMetrics, time);
+        updateActiveSection(songMetrics, time);
     });
 
     audioEngine.on('ended', () => {
