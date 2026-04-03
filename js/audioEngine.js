@@ -5,6 +5,10 @@
 
 import { fetchArrayBufferWithCache } from './cacheManager.js';
 
+const STEM_GAIN_DEFAULT_DB = 0.0;
+const STEM_GAIN_MIN_DB = -24.0;
+const STEM_GAIN_MAX_DB = 12.0;
+
 /**
  * AudioEngine class - manages Web Audio API for multi-stem playback
  */
@@ -75,7 +79,8 @@ export class AudioEngine {
                 source: null,
                 gainNode: null,
                 isMuted: metadata.defaultMuted === true,
-                isSoloed: false
+                isSoloed: false,
+                volumeDb: metadata.defaultVolumeDb ?? STEM_GAIN_DEFAULT_DB
             });
 
             const arrayBuffer = await fetchArrayBufferWithCache(url);
@@ -140,6 +145,7 @@ export class AudioEngine {
         if (manifest.stems && manifest.stems.length > 0) {
             for (const stem of manifest.stems) {
                 const defaultMuted = manifest.defaultMutedStems?.[stem.id] === true;
+                const defaultVolumeDb = manifest.defaultStemVolumesDb?.[stem.id] ?? STEM_GAIN_DEFAULT_DB;
 
                 const stemPromise = this.loadStem(
                     stem.id,
@@ -148,7 +154,8 @@ export class AudioEngine {
                         name: stem.name,
                         color: stem.color,
                         order: stem.order,
-                        defaultMuted
+                        defaultMuted,
+                        defaultVolumeDb
                     }
                 );
                 promises.push(stemPromise);
@@ -206,7 +213,8 @@ export class AudioEngine {
                 color: stem.color,
                 order: stem.order,
                 isMuted: stem.isMuted,
-                isSoloed: stem.isSoloed
+                isSoloed: stem.isSoloed,
+                volumeDb: stem.volumeDb ?? STEM_GAIN_DEFAULT_DB
             }));
     }
 
@@ -498,6 +506,29 @@ export class AudioEngine {
         this._emit('statechange', this.getState());
     }
 
+    /**
+     * Set per-stem gain in decibels
+     * @param {string} stemId - Stem identifier
+     * @param {number} volumeDb - Gain in dB
+     */
+    setVolumeDb(stemId, volumeDb) {
+        const stem = this.stems.get(stemId);
+        if (!stem) {
+            console.warn(`Stem not found: ${stemId}`);
+            return;
+        }
+
+        const numericDb = Number(volumeDb);
+        if (!Number.isFinite(numericDb)) {
+            console.warn(`Invalid volume dB value for stem ${stemId}:`, volumeDb);
+            return;
+        }
+
+        stem.volumeDb = Math.min(STEM_GAIN_MAX_DB, Math.max(STEM_GAIN_MIN_DB, numericDb));
+        this._recalculateGains();
+        this._emit('statechange', this.getState());
+    }
+
     // Private playback helpers
 
     /**
@@ -640,10 +671,11 @@ export class AudioEngine {
 
             // Calculate if stem should be audible
             const shouldBeAudible = stem.isSoloed || (!anySoloed && !stem.isMuted);
+            const stemGainLinear = Math.pow(10, (stem.volumeDb ?? STEM_GAIN_DEFAULT_DB) / 20);
 
             // Set gain instantly
             stem.gainNode.gain.setValueAtTime(
-                shouldBeAudible ? 1.0 : 0.0,
+                shouldBeAudible ? stemGainLinear : 0.0,
                 this.audioContext.currentTime
             );
         });

@@ -175,6 +175,19 @@ function setupStemControls() {
             }
         }
     });
+
+    stemsSidebar.addEventListener('input', (e) => {
+        if (!audioEngine) return;
+
+        const gainKnob = e.target.closest('.stem-gain-knob');
+        if (!gainKnob) return;
+
+        const stemId = gainKnob.dataset.stemId;
+        const volumeDb = parseFloat(gainKnob.value);
+
+        audioEngine.setVolumeDb(stemId, volumeDb);
+        uiController.updateStemGain(stemId, volumeDb);
+    });
 }
 
 /**
@@ -371,6 +384,7 @@ async function initializeAudio() {
                 mute: stem.isMuted,
                 solo: stem.isSoloed
             });
+            uiController.updateStemGain(stem.id, stem.volumeDb ?? 0.0);
         });
 
         // Set audio engine reference in waveform renderer

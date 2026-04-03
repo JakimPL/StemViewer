@@ -9,6 +9,10 @@ const STEM_ITEM_MIN_HEIGHT_PX = 60;
 const STEM_ITEM_MAX_HEIGHT_PX = 180;
 const TIME_RULER_FALLBACK_WIDTH_PX = 800;
 const TIME_RULER_MIN_MARKER_SPACING_PX = 80;
+const STEM_GAIN_MIN_DB = -24;
+const STEM_GAIN_MAX_DB = 12;
+const STEM_GAIN_STEP_DB = 0.1;
+const STEM_GAIN_DEFAULT_DB = 0;
 
 export class UIController {
     /**
@@ -299,6 +303,24 @@ export class UIController {
     }
 
     /**
+     * Update stem gain slider and value display
+     * @param {string} stemId - Stem identifier
+     * @param {number} volumeDb - Gain in decibels
+     */
+    updateStemGain(stemId, volumeDb) {
+        const slider = document.querySelector(`.stem-gain-knob[data-stem-id="${stemId}"]`);
+        const liveLabel = document.querySelector(`.stem-gain-live[data-stem-id="${stemId}"]`);
+
+        if (slider) {
+            slider.value = `${volumeDb}`;
+        }
+
+        if (liveLabel) {
+            liveLabel.textContent = `${Number(volumeDb).toFixed(1)} dB`;
+        }
+    }
+
+    /**
      * Clear all solo buttons except optionally one
      * @param {string} exceptStemId - Stem ID to exclude from clearing (optional)
      */
@@ -333,6 +355,18 @@ export class UIController {
             <div class="stem-controls">
                 <button class="stem-btn solo-btn" data-stem-id="${stem.id}" title="Solo">S</button>
                 <button class="stem-btn mute-btn" data-stem-id="${stem.id}" title="Mute">M</button>
+                <div class="stem-gain" title="Gain">
+                    <input
+                        class="stem-gain-knob"
+                        type="range"
+                        min="${STEM_GAIN_MIN_DB}"
+                        max="${STEM_GAIN_MAX_DB}"
+                        step="${STEM_GAIN_STEP_DB}"
+                        value="${STEM_GAIN_DEFAULT_DB}"
+                        data-stem-id="${stem.id}"
+                    />
+                    <span class="stem-gain-live" data-stem-id="${stem.id}">0.0 dB</span>
+                </div>
             </div>
         `;
 

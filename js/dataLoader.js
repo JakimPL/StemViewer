@@ -70,6 +70,23 @@ function validateManifest(manifest) {
         }
     });
 
+    // Validate optional default stem volumes map (dB values)
+    if (manifest.defaultStemVolumesDb === undefined) {
+        manifest.defaultStemVolumesDb = {};
+    } else if (
+        manifest.defaultStemVolumesDb === null ||
+        typeof manifest.defaultStemVolumesDb !== 'object' ||
+        Array.isArray(manifest.defaultStemVolumesDb)
+    ) {
+        throw new Error('Manifest "defaultStemVolumesDb" must be an object map of stemId -> number');
+    }
+
+    Object.entries(manifest.defaultStemVolumesDb).forEach(([stemId, volumeDb]) => {
+        if (typeof volumeDb !== 'number' || !Number.isFinite(volumeDb)) {
+            throw new Error(`Manifest "defaultStemVolumesDb.${stemId}" must be a finite number (dB)`);
+        }
+    });
+
     // Validate song metadata
     const requiredSongFields = ['title', 'artist', 'duration', 'bpm'];
     for (const field of requiredSongFields) {
@@ -100,6 +117,12 @@ function validateManifest(manifest) {
     Object.keys(manifest.defaultMutedStems).forEach(stemId => {
         if (!stemIds.has(stemId)) {
             console.warn(`defaultMutedStems contains unknown stem id: "${stemId}"`);
+        }
+    });
+
+    Object.keys(manifest.defaultStemVolumesDb).forEach(stemId => {
+        if (!stemIds.has(stemId)) {
+            console.warn(`defaultStemVolumesDb contains unknown stem id: "${stemId}"`);
         }
     });
 
