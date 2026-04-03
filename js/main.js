@@ -295,7 +295,6 @@ function setupWaveformTooltip() {
         // Keep tooltip within canvas bounds
         const tooltipRect = tooltip.getBoundingClientRect();
         const tooltipWidth = tooltipRect.width;
-        const tooltipHeight = tooltipRect.height;
 
         // Horizontal bounds
         if (tooltipX + tooltipWidth > rect.width) {
