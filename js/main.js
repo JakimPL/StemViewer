@@ -3,33 +3,19 @@
  * Coordinates all modules and initializes the application
  */
 
-import { loadManifest, resolveAudioPath } from './dataLoader.js';
+import { loadManifest } from './dataLoader.js';
 import { formatTime } from './utils.js';
 import { AudioEngine } from './audioEngine.js';
 import { WaveformRenderer } from './waveformRenderer.js';
 import { SongMetrics } from './songMetrics.js';
-import {
-    adjustStemHeights,
-    updateSongHeader,
-    updateStemsList,
-    updateSectionMarkers,
-    updateTimeRuler,
-    updateMetadataPanel,
-    updateTimeDisplay,
-    updatePlayhead,
-    updatePlayheadVisibility,
-    updateActiveSection,
-    updatePlayButtonIcon,
-    updateStemButtons,
-    updateAllStemButtons,
-    clearAllSoloButtons
-} from './uiController.js';
+import { UIController } from './uiController.js';
 
 // Application state
 let manifest = null;
 let audioEngine = null;
 let waveformRenderer = null;
 let songMetrics = null;
+let uiController = null;
 
 // Initialize application when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
@@ -40,6 +26,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Create song metrics helper
         songMetrics = new SongMetrics(manifest);
+
+        // Create UI controller
+        uiController = new UIController(manifest, songMetrics, () => audioEngine);
 
         // Initialize UI with manifest data
         initializeUI();
@@ -65,27 +54,11 @@ document.addEventListener('DOMContentLoaded', async () => {
  * Initialize UI elements with manifest data
  */
 function initializeUI() {
-    // Update song header
-    updateSongHeader(manifest);
-
-    // Update stems list
-    updateStemsList(manifest);
-
-    // Update section markers
-    updateSectionMarkers(manifest, songMetrics, () => audioEngine, updatePlayButtonIcon);
-
-    // Update time ruler
-    updateTimeRuler(manifest, songMetrics);
-
-    // Update metadata panel
-    updateMetadataPanel(manifest);
-
-    // Update time display
-    updateTimeDisplay(manifest, songMetrics, 0); // Start at 0:00
+    uiController.initialize();
 
     // Adjust stem heights after layout is complete
     requestAnimationFrame(() => {
-        adjustStemHeights();
+        uiController.adjustStemHeights();
         if (waveformRenderer) {
             waveformRenderer.render();
         }
@@ -102,7 +75,7 @@ function initializeUI() {
 function setupEventListeners() {
     // Window resize
     window.addEventListener('resize', () => {
-        adjustStemHeights();
+        uiController.adjustStemHeights();
         if (waveformRenderer) {
             waveformRenderer.resize();
             waveformRenderer.render();
@@ -123,11 +96,11 @@ function setupEventListeners() {
             if (state.isPlaying) {
                 // Currently playing → pause
                 audioEngine.pause();
-                updatePlayButtonIcon(false); // Show play icon
+                uiController.updatePlayButtonIcon(false); // Show play icon
             } else {
                 // Currently paused or stopped → play
                 await audioEngine.play();
-                updatePlayButtonIcon(true); // Show pause icon
+                uiController.updatePlayButtonIcon(true); // Show pause icon
                 stopBtn.disabled = false;
             }
         } catch (error) {
@@ -140,9 +113,9 @@ function setupEventListeners() {
         if (!audioEngine) return;
 
         audioEngine.stop();
-        updatePlayButtonIcon(false); // Show play icon
+        uiController.updatePlayButtonIcon(false); // Show play icon
         stopBtn.disabled = true;
-        updatePlayhead(songMetrics, 0); // Reset playhead to beginning
+        uiController.updatePlayhead(0); // Reset playhead to beginning
     });
 
     // Stem controls (using event delegation since they're dynamically created)
@@ -157,18 +130,18 @@ function setupEventListeners() {
         if (muteBtn) {
             const stemId = muteBtn.dataset.stemId;
             const isMuted = audioEngine.toggleMute(stemId);
-            updateStemButtons(stemId, { mute: isMuted, solo: isMuted ? false : undefined });
+            uiController.updateStemButtons(stemId, { mute: isMuted, solo: isMuted ? false : undefined });
         } else if (soloBtn) {
             const stemId = soloBtn.dataset.stemId;
             const exclusive = !e.shiftKey; // Exclusive solo unless Shift is pressed
             const isSoloed = audioEngine.toggleSolo(stemId, exclusive);
 
             // Update button states
-            updateStemButtons(stemId, { solo: isSoloed, mute: isSoloed ? false : undefined });
+            uiController.updateStemButtons(stemId, { solo: isSoloed, mute: isSoloed ? false : undefined });
 
             // If exclusive solo, clear all other solo buttons
             if (exclusive && isSoloed) {
-                clearAllSoloButtons(stemId);
+                uiController.clearAllSoloButtons(stemId);
             }
         }
     });
@@ -193,10 +166,10 @@ function actionTogglePlayPause() {
     const state = audioEngine.getState();
     if (state.isPlaying) {
         audioEngine.pause();
-        updatePlayButtonIcon(false);
+        uiController.updatePlayButtonIcon(false);
     } else {
         audioEngine.play();
-        updatePlayButtonIcon(true);
+        uiController.updatePlayButtonIcon(true);
         document.getElementById('stop-btn').disabled = false;
     }
 }
@@ -208,9 +181,9 @@ function actionStop() {
     if (!audioEngine) return;
 
     audioEngine.stop();
-    updatePlayButtonIcon(false);
+    uiController.updatePlayButtonIcon(false);
     document.getElementById('stop-btn').disabled = true;
-    updatePlayhead(0);
+    uiController.updatePlayhead(0);
 }
 
 /**
@@ -252,7 +225,7 @@ function actionToggleStemMute(stemIndex) {
     const isMuted = audioEngine.toggleMute(stem.id);
 
     // Update UI
-    updateStemButtons(stem.id, { mute: isMuted, solo: isMuted ? false : undefined });
+    uiController.updateStemButtons(stem.id, { mute: isMuted, solo: isMuted ? false : undefined });
 }
 
 /**
@@ -269,11 +242,11 @@ function actionToggleStemSolo(stemIndex) {
     const isSoloed = audioEngine.toggleSolo(stem.id, true); // Exclusive
 
     // Update UI
-    updateStemButtons(stem.id, { solo: isSoloed, mute: isSoloed ? false : undefined });
+    uiController.updateStemButtons(stem.id, { solo: isSoloed, mute: isSoloed ? false : undefined });
 
     // Clear all other solo buttons if soloed
     if (isSoloed) {
-        clearAllSoloButtons(stem.id);
+        uiController.clearAllSoloButtons(stem.id);
     }
 }
 
@@ -287,7 +260,7 @@ function actionMuteAll() {
     stems.forEach(stem => {
         audioEngine.setMute(stem.id, true);
     });
-    updateAllStemButtons(stems, { mute: true });
+    uiController.updateAllStemButtons(stems, { mute: true });
 
     showNotification('All tracks muted. Press U to unmute all.');
 }
@@ -303,7 +276,7 @@ function actionUnmuteAll() {
         audioEngine.setMute(stem.id, false);
         audioEngine.setSolo(stem.id, false);
     });
-    updateAllStemButtons(stems, { mute: false, solo: false });
+    uiController.updateAllStemButtons(stems, { mute: false, solo: false });
 
     showNotification('All tracks unmuted. Press M to mute all.');
 }
@@ -326,7 +299,7 @@ function actionNextSection() {
 
         if (!wasPlaying) {
             audioEngine.play();
-            updatePlayButtonIcon(true);
+            uiController.updatePlayButtonIcon(true);
             document.getElementById('stop-btn').disabled = false;
         }
     }
@@ -359,7 +332,7 @@ function actionPreviousSection() {
 
         if (!wasPlaying) {
             audioEngine.play();
-            updatePlayButtonIcon(true);
+            uiController.updatePlayButtonIcon(true);
             document.getElementById('stop-btn').disabled = false;
         }
     }
@@ -529,7 +502,7 @@ function setupWaveformTooltip() {
         // Start playing if not already playing
         if (!wasPlaying) {
             await audioEngine.play();
-            updatePlayButtonIcon(true);
+            uiController.updatePlayButtonIcon(true);
             document.getElementById('stop-btn').disabled = false;
         }
     });
@@ -550,20 +523,20 @@ async function initializeAudio() {
     });
 
     audioEngine.on('timeupdate', (time) => {
-        updateTimeDisplay(manifest, songMetrics, time);
-        updatePlayhead(songMetrics, time);
-        updateActiveSection(songMetrics, time);
+        uiController.updateTimeDisplay(time);
+        uiController.updatePlayhead(time);
+        uiController.updateActiveSection(time);
     });
 
     audioEngine.on('ended', () => {
         console.log('Playback ended');
         // Reset UI to stopped state
-        updatePlayButtonIcon(false); // Show play icon
+        uiController.updatePlayButtonIcon(false); // Show play icon
         document.getElementById('stop-btn').disabled = true;
     });
 
     audioEngine.on('statechange', (state) => {
-        updatePlayheadVisibility(state);
+        uiController.updatePlayheadVisibility(state);
     });
 
     // Handle decode start/end for visual feedback
