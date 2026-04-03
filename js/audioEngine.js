@@ -153,7 +153,7 @@ export class AudioEngine {
      */
     getCurrentTime() {
         if (this.state.isPlaying) {
-            return (this.audioContext.currentTime - this.startTime) + this.pausedAt;
+            return this.audioContext.currentTime - this.startTime;
         }
         return this.pausedAt;
     }
@@ -284,6 +284,7 @@ export class AudioEngine {
         }
 
         this.startTime = this.audioContext.currentTime - offset;
+        this.pausedAt = 0; // Reset pausedAt since we've incorporated it into startTime
         this.state.isPlaying = true;
         this.state.isPaused = false;
 
@@ -362,6 +363,12 @@ export class AudioEngine {
         }
 
         stem.isMuted = !stem.isMuted;
+
+        // If muting, also clear solo state
+        if (stem.isMuted && stem.isSoloed) {
+            stem.isSoloed = false;
+        }
+
         this._recalculateGains();
         this._emit('statechange', this.getState());
 
@@ -391,6 +398,12 @@ export class AudioEngine {
         }
 
         stem.isSoloed = !stem.isSoloed;
+
+        // If soloing, also clear mute state
+        if (stem.isSoloed && stem.isMuted) {
+            stem.isMuted = false;
+        }
+
         this._recalculateGains();
         this._emit('statechange', this.getState());
 

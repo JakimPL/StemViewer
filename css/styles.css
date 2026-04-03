@@ -257,6 +257,22 @@ body {
     cursor: pointer;
 }
 
+.playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background-color: #ffffff;
+    pointer-events: none;
+    z-index: 10;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.playhead.visible {
+    opacity: 1;
+}
+
 .time-display {
     position: absolute;
     top: 10px;

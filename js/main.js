@@ -292,6 +292,36 @@ function updateTimeDisplay(currentTime = 0) {
 }
 
 /**
+ * Update playhead position based on current time
+ * @param {number} currentTime - Current time in seconds
+ */
+function updatePlayhead(currentTime = 0) {
+    const playhead = document.getElementById('playhead');
+    if (!playhead) return;
+
+    const duration = manifest.song.duration;
+    const positionPercent = (currentTime / duration) * 100;
+
+    playhead.style.left = `${positionPercent}%`;
+}
+
+/**
+ * Update playhead visibility based on playback state
+ * @param {Object} state - Playback state from audio engine
+ */
+function updatePlayheadVisibility(state) {
+    const playhead = document.getElementById('playhead');
+    if (!playhead) return;
+
+    // Show playhead when playing or paused, hide when stopped
+    if (state.isPlaying || state.isPaused) {
+        playhead.classList.add('visible');
+    } else {
+        playhead.classList.remove('visible');
+    }
+}
+
+/**
  * Setup event listeners
  */
 function setupEventListeners() {
@@ -334,6 +364,7 @@ function setupEventListeners() {
         audioEngine.stop();
         updatePlayButtonIcon(false); // Show play icon
         stopBtn.disabled = true;
+        updatePlayhead(0); // Reset playhead to beginning
     });
 
     // Stem controls (using event delegation since they're dynamically created)
@@ -349,6 +380,14 @@ function setupEventListeners() {
             const stemId = muteBtn.dataset.stemId;
             const isMuted = audioEngine.toggleMute(stemId);
             muteBtn.classList.toggle('active', isMuted);
+
+            // If muted, also clear solo button visual state
+            if (isMuted) {
+                const soloBtn = muteBtn.parentElement.querySelector('.solo-btn');
+                if (soloBtn) {
+                    soloBtn.classList.remove('active');
+                }
+            }
         } else if (soloBtn) {
             const stemId = soloBtn.dataset.stemId;
             const exclusive = !e.shiftKey; // Exclusive solo unless Shift is pressed
@@ -356,6 +395,14 @@ function setupEventListeners() {
 
             // Update button state
             soloBtn.classList.toggle('active', isSoloed);
+
+            // If soloed, also clear mute button visual state
+            if (isSoloed) {
+                const muteBtn = soloBtn.parentElement.querySelector('.mute-btn');
+                if (muteBtn) {
+                    muteBtn.classList.remove('active');
+                }
+            }
 
             // If exclusive solo, update all other solo buttons
             if (exclusive && isSoloed) {
@@ -460,14 +507,6 @@ function drawPlaceholderWaveform(canvas) {
         ctx.lineTo(x, canvas.height);
         ctx.stroke();
     });
-
-    // Draw playhead at start
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, canvas.height);
-    ctx.stroke();
 }
 
 /**
@@ -486,6 +525,7 @@ async function initializeAudio() {
 
     audioEngine.on('timeupdate', (time) => {
         updateTimeDisplay(time);
+        updatePlayhead(time);
     });
 
     audioEngine.on('ended', () => {
@@ -493,6 +533,10 @@ async function initializeAudio() {
         // Reset UI to stopped state
         updatePlayButtonIcon(false); // Show play icon
         document.getElementById('stop-btn').disabled = true;
+    });
+
+    audioEngine.on('statechange', (state) => {
+        updatePlayheadVisibility(state);
     });
 
     // Load audio from manifest
