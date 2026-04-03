@@ -4,236 +4,262 @@
  */
 
 /**
- * Setup all keyboard shortcuts
- * @param {Function} getAudioEngine - Getter returning the current AudioEngine instance
- * @param {UIController} uiController - UI controller instance
- * @param {Object} manifest - Song manifest data
- * @param {Function} showNotification - Notification display function
+ * Keyboard controller for shortcut handling and action dispatching
  */
-export function setupKeyboardShortcuts(getAudioEngine, uiController, manifest, showNotification) {
+export class KeyboardController {
+    /**
+     * @param {Function} getAudioEngine - Getter returning the current AudioEngine instance
+     * @param {UIController} uiController - UI controller instance
+     * @param {Object} manifest - Song manifest data
+     * @param {Function} showNotification - Notification display function
+     */
+    constructor(getAudioEngine, uiController, manifest, showNotification) {
+        this.getAudioEngine = getAudioEngine;
+        this.uiController = uiController;
+        this.manifest = manifest;
+        this.showNotification = showNotification;
+        this.isEnabled = false;
 
-    // ============================================================================
-    // ACTIONS
-    // ============================================================================
+        this.handleKeyDown = this.handleKeyDown.bind(this);
 
-    function actionTogglePlayPause() {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
-
-        const state = audioEngine.getState();
-        if (state.isPlaying) {
-            audioEngine.pause();
-            uiController.updatePlayButtonIcon(false);
-        } else {
-            audioEngine.play();
-            uiController.updatePlayButtonIcon(true);
-            document.getElementById('stop-btn').disabled = false;
-        }
+        this.actions = {
+            togglePlayPause: () => this.togglePlayPause(),
+            stop: () => this.stop(),
+            seekBackward: (seconds = 5) => this.seekBackward(seconds),
+            seekForward: (seconds = 5) => this.seekForward(seconds),
+            toggleStemMute: (stemIndex) => this.toggleStemMute(stemIndex),
+            toggleStemSolo: (stemIndex) => this.toggleStemSolo(stemIndex),
+            muteAll: () => this.muteAll(),
+            unmuteAll: () => this.unmuteAll(),
+            nextSection: () => this.nextSection(),
+            previousSection: () => this.previousSection(),
+            jumpToStart: () => this.jumpToStart()
+        };
     }
 
-    function actionStop() {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
+    enable() {
+        if (this.isEnabled) return;
 
-        audioEngine.stop();
-        uiController.updatePlayButtonIcon(false);
-        document.getElementById('stop-btn').disabled = true;
-        uiController.updatePlayhead(0);
+        document.addEventListener('keydown', this.handleKeyDown);
+        this.isEnabled = true;
     }
 
-    function actionSeekBackward(seconds = 5) {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
+    disable() {
+        if (!this.isEnabled) return;
 
-        const currentTime = audioEngine.getCurrentTime();
-        const newTime = Math.max(0, currentTime - seconds);
-        audioEngine.seek(newTime);
+        document.removeEventListener('keydown', this.handleKeyDown);
+        this.isEnabled = false;
     }
 
-    function actionSeekForward(seconds = 5) {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
+    togglePlayPause() {
+        this.withAudioEngine((audioEngine) => {
+            const state = audioEngine.getState();
 
-        const currentTime = audioEngine.getCurrentTime();
-        const duration = audioEngine.getDuration();
-        const newTime = Math.min(duration, currentTime + seconds);
-        audioEngine.seek(newTime);
-    }
-
-    function actionToggleStemMute(stemIndex) {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
-
-        const stems = audioEngine.getStems();
-        if (stemIndex >= stems.length) return;
-
-        const stem = stems[stemIndex];
-        const isMuted = audioEngine.toggleMute(stem.id);
-
-        uiController.updateStemButtons(stem.id, { mute: isMuted, solo: isMuted ? false : undefined });
-    }
-
-    function actionToggleStemSolo(stemIndex) {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
-
-        const stems = audioEngine.getStems();
-        if (stemIndex >= stems.length) return;
-
-        const stem = stems[stemIndex];
-        const isSoloed = audioEngine.toggleSolo(stem.id, true); // Exclusive
-
-        uiController.updateStemButtons(stem.id, { solo: isSoloed, mute: isSoloed ? false : undefined });
-
-        if (isSoloed) {
-            uiController.clearAllSoloButtons(stem.id);
-        }
-    }
-
-    function actionMuteAll() {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
-
-        const stems = audioEngine.getStems();
-        stems.forEach(stem => {
-            audioEngine.setMute(stem.id, true);
+            if (state.isPlaying) {
+                audioEngine.pause();
+                this.uiController.updatePlayButtonIcon(false);
+            } else {
+                audioEngine.play();
+                this.uiController.updatePlayButtonIcon(true);
+                document.getElementById('stop-btn').disabled = false;
+            }
         });
-        uiController.updateAllStemButtons(stems, { mute: true });
-
-        showNotification('All tracks muted. Press U to unmute all.');
     }
 
-    function actionUnmuteAll() {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
-
-        const stems = audioEngine.getStems();
-        stems.forEach(stem => {
-            audioEngine.setMute(stem.id, false);
-            audioEngine.setSolo(stem.id, false);
+    stop() {
+        this.withAudioEngine((audioEngine) => {
+            audioEngine.stop();
+            this.uiController.updatePlayButtonIcon(false);
+            document.getElementById('stop-btn').disabled = true;
+            this.uiController.updatePlayhead(0);
         });
-        uiController.updateAllStemButtons(stems, { mute: false, solo: false });
-
-        showNotification('All tracks unmuted. Press M to mute all.');
     }
 
-    function actionNextSection() {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
+    seekBackward(seconds = 5) {
+        this.withAudioEngine((audioEngine) => {
+            const currentTime = audioEngine.getCurrentTime();
+            const newTime = Math.max(0, currentTime - seconds);
+            audioEngine.seek(newTime);
+        });
+    }
 
-        const currentTime = audioEngine.getCurrentTime();
-        const sections = manifest.sections;
+    seekForward(seconds = 5) {
+        this.withAudioEngine((audioEngine) => {
+            const currentTime = audioEngine.getCurrentTime();
+            const duration = audioEngine.getDuration();
+            const newTime = Math.min(duration, currentTime + seconds);
+            audioEngine.seek(newTime);
+        });
+    }
 
-        const nextSection = sections.find(section => section.startTime > currentTime);
+    toggleStemMute(stemIndex) {
+        this.withAudioEngine((audioEngine) => {
+            const stems = audioEngine.getStems();
+            if (stemIndex >= stems.length) return;
 
-        if (nextSection) {
+            const stem = stems[stemIndex];
+            const isMuted = audioEngine.toggleMute(stem.id);
+
+            this.uiController.updateStemButtons(stem.id, { mute: isMuted, solo: isMuted ? false : undefined });
+        });
+    }
+
+    toggleStemSolo(stemIndex) {
+        this.withAudioEngine((audioEngine) => {
+            const stems = audioEngine.getStems();
+            if (stemIndex >= stems.length) return;
+
+            const stem = stems[stemIndex];
+            const isSoloed = audioEngine.toggleSolo(stem.id, true);
+
+            this.uiController.updateStemButtons(stem.id, { solo: isSoloed, mute: isSoloed ? false : undefined });
+
+            if (isSoloed) {
+                this.uiController.clearAllSoloButtons(stem.id);
+            }
+        });
+    }
+
+    muteAll() {
+        this.withAudioEngine((audioEngine) => {
+            const stems = audioEngine.getStems();
+            stems.forEach(stem => {
+                audioEngine.setMute(stem.id, true);
+            });
+
+            this.uiController.updateAllStemButtons(stems, { mute: true });
+            this.showNotification('All tracks muted. Press U to unmute all.');
+        });
+    }
+
+    unmuteAll() {
+        this.withAudioEngine((audioEngine) => {
+            const stems = audioEngine.getStems();
+            stems.forEach(stem => {
+                audioEngine.setMute(stem.id, false);
+                audioEngine.setSolo(stem.id, false);
+            });
+
+            this.uiController.updateAllStemButtons(stems, { mute: false, solo: false });
+            this.showNotification('All tracks unmuted. Press M to mute all.');
+        });
+    }
+
+    nextSection() {
+        this.withAudioEngine((audioEngine) => {
+            const currentTime = audioEngine.getCurrentTime();
+            const nextSection = this.manifest.sections.find(section => section.startTime > currentTime);
+
+            if (!nextSection) return;
+
             const wasPlaying = audioEngine.getState().isPlaying;
             audioEngine.seek(nextSection.startTime);
 
             if (!wasPlaying) {
                 audioEngine.play();
-                uiController.updatePlayButtonIcon(true);
+                this.uiController.updatePlayButtonIcon(true);
                 document.getElementById('stop-btn').disabled = false;
             }
-        }
+        });
     }
 
-    function actionPreviousSection() {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
+    previousSection() {
+        this.withAudioEngine((audioEngine) => {
+            const currentTime = audioEngine.getCurrentTime();
+            const sections = this.manifest.sections;
+            const threshold = 2.0;
+            let targetSection = null;
 
-        const currentTime = audioEngine.getCurrentTime();
-        const sections = manifest.sections;
-
-        // If we're within 2 seconds of the section start, go to the previous one
-        const threshold = 2.0;
-        let targetSection = null;
-
-        for (let i = sections.length - 1; i >= 0; i--) {
-            if (sections[i].startTime < currentTime - threshold) {
-                targetSection = sections[i];
-                break;
+            for (let i = sections.length - 1; i >= 0; i--) {
+                if (sections[i].startTime < currentTime - threshold) {
+                    targetSection = sections[i];
+                    break;
+                }
             }
-        }
 
-        if (targetSection) {
+            if (!targetSection) return;
+
             const wasPlaying = audioEngine.getState().isPlaying;
             audioEngine.seek(targetSection.startTime);
 
             if (!wasPlaying) {
                 audioEngine.play();
-                uiController.updatePlayButtonIcon(true);
+                this.uiController.updatePlayButtonIcon(true);
                 document.getElementById('stop-btn').disabled = false;
             }
-        }
+        });
     }
 
-    function actionJumpToStart() {
-        const audioEngine = getAudioEngine();
-        if (!audioEngine) return;
-
-        audioEngine.seek(0);
+    jumpToStart() {
+        this.withAudioEngine((audioEngine) => {
+            audioEngine.seek(0);
+        });
     }
 
-    // ============================================================================
-    // KEY MAPS & LISTENER
-    // ============================================================================
-
-    const keyMap = {
-        ' ': actionTogglePlayPause,
-        'Escape': actionStop,
-        'ArrowLeft': () => actionSeekBackward(5),
-        'ArrowRight': () => actionSeekForward(5),
-        '1': () => actionToggleStemMute(0),
-        '2': () => actionToggleStemMute(1),
-        '3': () => actionToggleStemMute(2),
-        '4': () => actionToggleStemMute(3),
-        '5': () => actionToggleStemMute(4),
-        '6': () => actionToggleStemMute(5),
-        '7': () => actionToggleStemMute(6),
-        '8': () => actionToggleStemMute(7),
-        '9': () => actionToggleStemMute(8),
-        'm': actionMuteAll,
-        'M': actionMuteAll,
-        'u': actionUnmuteAll,
-        'U': actionUnmuteAll,
-        'Tab': actionNextSection,
-        'Home': actionJumpToStart
-    };
-
-    // Shift + number keys for solo
-    const shiftKeyMap = {
-        '1': () => actionToggleStemSolo(0),
-        '2': () => actionToggleStemSolo(1),
-        '3': () => actionToggleStemSolo(2),
-        '4': () => actionToggleStemSolo(3),
-        '5': () => actionToggleStemSolo(4),
-        '6': () => actionToggleStemSolo(5),
-        '7': () => actionToggleStemSolo(6),
-        '8': () => actionToggleStemSolo(7),
-        '9': () => actionToggleStemSolo(8),
-        'Tab': actionPreviousSection
-    };
-
-    document.addEventListener('keydown', (e) => {
-        // Ignore if user is typing in an input field
+    handleKeyDown(e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
             return;
         }
 
         const key = e.key;
+        const keyMap = this.getKeyMap();
+        const shiftKeyMap = this.getShiftKeyMap();
 
-        // Handle Shift + key combinations
         if (e.shiftKey && shiftKeyMap[key]) {
             e.preventDefault();
             shiftKeyMap[key]();
             return;
         }
 
-        // Handle regular key presses
         if (keyMap[key]) {
             e.preventDefault();
             keyMap[key]();
         }
-    });
+    }
+
+    getKeyMap() {
+        return {
+            ' ': this.actions.togglePlayPause,
+            'Escape': this.actions.stop,
+            'ArrowLeft': () => this.actions.seekBackward(5),
+            'ArrowRight': () => this.actions.seekForward(5),
+            '1': () => this.actions.toggleStemMute(0),
+            '2': () => this.actions.toggleStemMute(1),
+            '3': () => this.actions.toggleStemMute(2),
+            '4': () => this.actions.toggleStemMute(3),
+            '5': () => this.actions.toggleStemMute(4),
+            '6': () => this.actions.toggleStemMute(5),
+            '7': () => this.actions.toggleStemMute(6),
+            '8': () => this.actions.toggleStemMute(7),
+            '9': () => this.actions.toggleStemMute(8),
+            'm': this.actions.muteAll,
+            'M': this.actions.muteAll,
+            'u': this.actions.unmuteAll,
+            'U': this.actions.unmuteAll,
+            'Tab': this.actions.nextSection,
+            'Home': this.actions.jumpToStart
+        };
+    }
+
+    getShiftKeyMap() {
+        return {
+            '1': () => this.actions.toggleStemSolo(0),
+            '2': () => this.actions.toggleStemSolo(1),
+            '3': () => this.actions.toggleStemSolo(2),
+            '4': () => this.actions.toggleStemSolo(3),
+            '5': () => this.actions.toggleStemSolo(4),
+            '6': () => this.actions.toggleStemSolo(5),
+            '7': () => this.actions.toggleStemSolo(6),
+            '8': () => this.actions.toggleStemSolo(7),
+            '9': () => this.actions.toggleStemSolo(8),
+            'Tab': this.actions.previousSection
+        };
+    }
+
+    withAudioEngine(callback) {
+        const audioEngine = this.getAudioEngine();
+        if (!audioEngine) return;
+
+        return callback(audioEngine);
+    }
 }

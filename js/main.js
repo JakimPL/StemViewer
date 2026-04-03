@@ -9,7 +9,7 @@ import { AudioEngine } from './audioEngine.js';
 import { WaveformRenderer } from './waveformRenderer.js';
 import { SongMetrics } from './songMetrics.js';
 import { UIController } from './uiController.js';
-import { setupKeyboardShortcuts } from './keyboardController.js';
+import { KeyboardController } from './keyboardController.js';
 
 // Application state
 let manifest = null;
@@ -17,6 +17,7 @@ let audioEngine = null;
 let waveformRenderer = null;
 let songMetrics = null;
 let uiController = null;
+let keyboardController = null;
 
 // Initialize application when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
@@ -30,6 +31,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Create UI controller
         uiController = new UIController(manifest, songMetrics, () => audioEngine);
+
+        // Create keyboard controller
+        keyboardController = new KeyboardController(() => audioEngine, uiController, manifest, showNotification);
 
         // Initialize UI with manifest data
         initializeUI();
@@ -151,7 +155,7 @@ function setupEventListeners() {
     setupWaveformTooltip();
 
     // Keyboard shortcuts
-    setupKeyboardShortcuts(() => audioEngine, uiController, manifest, showNotification);
+    keyboardController.enable();
 }
 
 /**
