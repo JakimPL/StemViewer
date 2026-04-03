@@ -655,19 +655,22 @@ function drawPlaceholderWaveform(canvas) {
         stemColors.forEach((color, stemIndex) => {
             const stemHeight = stemHeights[stemIndex] || 0;
 
-            // Get amplitude - use real data if available, otherwise random
+            // Get amplitude - use real data if available, otherwise show placeholder
             let amplitude;
             if (stemBuffers && stemBuffers[stemIndex]) {
                 amplitude = getAmplitudeAtPosition(stemBuffers[stemIndex], i / barCount);
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 0.7;
             } else {
-                amplitude = Math.random() * 0.8 + 0.2;
+                // Placeholder: flat gray bars at 30% height
+                amplitude = 0.3;
+                ctx.fillStyle = '#444';
+                ctx.globalAlpha = 0.3;
             }
 
             const height = stemHeight * amplitude * 0.5;
             const y = currentY + (stemHeight - height) / 2;
 
-            ctx.fillStyle = color;
-            ctx.globalAlpha = 0.7;
             ctx.fillRect(i * barWidth, y, barWidth - 1, height);
 
             currentY += stemHeight;
@@ -675,6 +678,15 @@ function drawPlaceholderWaveform(canvas) {
     }
 
     ctx.globalAlpha = 1;
+
+    // If no real data, show instruction text
+    if (!stemBuffers) {
+        ctx.fillStyle = '#666';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Click Play or click anywhere on the timeline to load waveforms', canvas.width / 2, canvas.height / 2);
+    }
 
     // Draw section dividers based on manifest sections
     ctx.strokeStyle = '#555';
