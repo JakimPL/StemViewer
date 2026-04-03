@@ -620,6 +620,9 @@ export class AudioEngine {
         const anySoloed = Array.from(this.stems.values()).some(stem => stem.isSoloed);
 
         this.stems.forEach(stem => {
+            // Skip if gainNode doesn't exist yet (audio not decoded)
+            if (!stem.gainNode) return;
+
             // Calculate if stem should be audible
             const shouldBeAudible = stem.isSoloed || (!anySoloed && !stem.isMuted);
 
