@@ -9,6 +9,8 @@ This file defines all metadata for your song, including song information, stems,
   "song": { ... },
   "files": { ... },
   "defaultMutedStems": { ... },
+  "defaultSoloStems": { ... },
+  "defaultStemVolumesDb": { ... },
   "stems": [ ... ],
   "sections": [ ... ]
 }
@@ -231,6 +233,14 @@ The `durationFormatted` field is optional. If omitted, the app will auto-format 
   "defaultMutedStems": {
     "bass": true
   },
+  "defaultSoloStems": {
+    "kick": true
+  },
+  "defaultStemVolumesDb": {
+    "kick": 1.5,
+    "bass": -3.0,
+    "synth": -1.0
+  },
   "stems": [
     {
       "id": "kick",
@@ -304,3 +314,49 @@ In this example:
 - `bass` starts muted
 - `synth` starts unmuted
 - any other stem not listed also starts unmuted
+
+## Default Solo Stems (Optional)
+
+Defines which stems should start soloed by default.
+
+- **`defaultSoloStems`** (object): Dictionary of `stemId -> boolean`
+- If the dictionary is **missing**, all stems start not soloed
+- If a stem key is **missing**, that stem starts not soloed
+- If one or more stems are set to `true`, those stems are soloed on startup
+- If a stem is both muted and soloed by defaults, solo wins and mute is ignored for that stem
+
+### Example:
+```json
+"defaultSoloStems": {
+  "kick": true,
+  "synth": true
+}
+```
+
+In this example:
+- `kick` and `synth` start soloed
+- all other stems are suppressed until solo is cleared
+
+## Default Stem Volumes (Optional)
+
+Defines startup gain values (in dB) per stem.
+
+- **`defaultStemVolumesDb`** (object): Dictionary of `stemId -> number`
+- Values are in decibels and are clamped by the app to the supported range
+- If the dictionary is **missing**, all stems default to `0.0` dB
+- If a stem key is **missing**, that stem defaults to `0.0` dB
+
+### Example:
+```json
+"defaultStemVolumesDb": {
+  "kick": 2.0,
+  "bass": -4.5,
+  "vocal": 1.0
+}
+```
+
+In this example:
+- `kick` starts boosted by +2.0 dB
+- `bass` starts reduced by -4.5 dB
+- `vocal` starts boosted by +1.0 dB
+- any other stem not listed starts at 0.0 dB

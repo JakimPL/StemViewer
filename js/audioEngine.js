@@ -79,7 +79,7 @@ export class AudioEngine {
                 source: null,
                 gainNode: null,
                 isMuted: metadata.defaultMuted === true,
-                isSoloed: false,
+                isSoloed: metadata.defaultSolo === true,
                 volumeDb: metadata.defaultVolumeDb ?? STEM_GAIN_DEFAULT_DB
             });
 
@@ -144,7 +144,9 @@ export class AudioEngine {
         // Load all stems in parallel
         if (manifest.stems && manifest.stems.length > 0) {
             for (const stem of manifest.stems) {
+                const defaultSolo = manifest.defaultSoloStems?.[stem.id] === true;
                 const defaultMuted = manifest.defaultMutedStems?.[stem.id] === true;
+                const resolvedDefaultMuted = defaultSolo ? false : defaultMuted;
                 const defaultVolumeDb = manifest.defaultStemVolumesDb?.[stem.id] ?? STEM_GAIN_DEFAULT_DB;
 
                 const stemPromise = this.loadStem(
@@ -154,7 +156,8 @@ export class AudioEngine {
                         name: stem.name,
                         color: stem.color,
                         order: stem.order,
-                        defaultMuted,
+                        defaultMuted: resolvedDefaultMuted,
+                        defaultSolo,
                         defaultVolumeDb
                     }
                 );

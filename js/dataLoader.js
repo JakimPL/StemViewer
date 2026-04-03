@@ -70,6 +70,23 @@ function validateManifest(manifest) {
         }
     });
 
+    // Validate optional default solo stems map
+    if (manifest.defaultSoloStems === undefined) {
+        manifest.defaultSoloStems = {};
+    } else if (
+        manifest.defaultSoloStems === null ||
+        typeof manifest.defaultSoloStems !== 'object' ||
+        Array.isArray(manifest.defaultSoloStems)
+    ) {
+        throw new Error('Manifest "defaultSoloStems" must be an object map of stemId -> boolean');
+    }
+
+    Object.entries(manifest.defaultSoloStems).forEach(([stemId, isSoloed]) => {
+        if (typeof isSoloed !== 'boolean') {
+            throw new Error(`Manifest "defaultSoloStems.${stemId}" must be boolean`);
+        }
+    });
+
     // Validate optional default stem volumes map (dB values)
     if (manifest.defaultStemVolumesDb === undefined) {
         manifest.defaultStemVolumesDb = {};
@@ -117,6 +134,12 @@ function validateManifest(manifest) {
     Object.keys(manifest.defaultMutedStems).forEach(stemId => {
         if (!stemIds.has(stemId)) {
             console.warn(`defaultMutedStems contains unknown stem id: "${stemId}"`);
+        }
+    });
+
+    Object.keys(manifest.defaultSoloStems).forEach(stemId => {
+        if (!stemIds.has(stemId)) {
+            console.warn(`defaultSoloStems contains unknown stem id: "${stemId}"`);
         }
     });
 
