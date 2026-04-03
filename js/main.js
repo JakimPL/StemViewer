@@ -44,8 +44,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Initialize UI with manifest data
         initializeUI();
 
-        // Setup event listeners
-        setupEventListeners();
+        // Setup UI event listeners
+        setupUIEventListeners();
 
         // Initialize waveform renderer
         const canvas = document.getElementById('waveform-canvas');
@@ -81,9 +81,20 @@ function initializeUI() {
 }
 
 /**
- * Setup event listeners
+ * Setup UI event listeners
  */
-function setupEventListeners() {
+function setupUIEventListeners() {
+    setupWindowResizeListener();
+    setupTransportControls();
+    setupStemControls();
+    setupWaveformInteractions();
+    setupKeyboardControls();
+}
+
+/**
+ * Setup window resize listener
+ */
+function setupWindowResizeListener() {
     // Window resize
     window.addEventListener('resize', () => {
         uiController.adjustStemHeights();
@@ -92,8 +103,12 @@ function setupEventListeners() {
             waveformRenderer.render();
         }
     });
+}
 
-    // Transport controls
+/**
+ * Setup transport controls
+ */
+function setupTransportControls() {
     const playBtn = document.getElementById('play-btn');
     const stopBtn = document.getElementById('stop-btn');
 
@@ -116,7 +131,7 @@ function setupEventListeners() {
             }
         } catch (error) {
             console.error('Play/Pause failed:', error);
-            showError('Failed to play audio: ' + error.message);
+            NotificationManager.error('Failed to play audio: ' + error.message);
         }
     });
 
@@ -128,8 +143,12 @@ function setupEventListeners() {
         stopBtn.disabled = true;
         uiController.updatePlayhead(0); // Reset playhead to beginning
     });
+}
 
-    // Stem controls (using event delegation since they're dynamically created)
+/**
+ * Setup stem controls (using event delegation since they're dynamically created)
+ */
+function setupStemControls() {
     const stemsSidebar = document.querySelector('.stems-sidebar');
 
     stemsSidebar.addEventListener('click', (e) => {
@@ -156,12 +175,74 @@ function setupEventListeners() {
             }
         }
     });
+}
 
+/**
+ * Setup waveform interactions
+ */
+function setupWaveformInteractions() {
     // Waveform hover tooltip
     setupWaveformTooltip();
+}
 
+/**
+ * Setup keyboard controls
+ */
+function setupKeyboardControls() {
     // Keyboard shortcuts
     keyboardController.enable();
+}
+
+/**
+ * Setup audio engine event listeners
+ */
+function setupAudioEventListeners() {
+    if (!audioEngine) return;
+
+    audioEngine.on('loadprogress', (data) => {
+        console.log('Audio load progress:', data);
+    });
+
+    audioEngine.on('timeupdate', (time) => {
+        uiController.updateTimeDisplay(time);
+        uiController.updatePlayhead(time);
+        uiController.updateActiveSection(time);
+    });
+
+    audioEngine.on('ended', () => {
+        console.log('Playback ended');
+        // Reset UI to stopped state
+        uiController.updatePlayButtonIcon(false); // Show play icon
+        document.getElementById('stop-btn').disabled = true;
+    });
+
+    audioEngine.on('statechange', (state) => {
+        uiController.updatePlayheadVisibility(state);
+    });
+
+    // Handle decode start/end for visual feedback
+    audioEngine.on('decodestart', () => {
+        const playBtn = document.getElementById('play-btn');
+        const canvas = document.getElementById('waveform-canvas');
+        const wrapper = canvas?.parentElement;
+
+        playBtn?.classList.add('decoding');
+        wrapper?.classList.add('decoding');
+    });
+
+    audioEngine.on('decodeend', () => {
+        const playBtn = document.getElementById('play-btn');
+        const canvas = document.getElementById('waveform-canvas');
+        const wrapper = canvas?.parentElement;
+
+        playBtn?.classList.remove('decoding');
+        wrapper?.classList.remove('decoding');
+
+        // Redraw waveform with real audio data
+        if (waveformRenderer) {
+            waveformRenderer.render();
+        }
+    });
 }
 
 /**
@@ -269,51 +350,8 @@ async function initializeAudio() {
     // Create audio engine instance
     audioEngine = new AudioEngine();
 
-    // Set up event listeners
-    audioEngine.on('loadprogress', (data) => {
-        console.log('Audio load progress:', data);
-    });
-
-    audioEngine.on('timeupdate', (time) => {
-        uiController.updateTimeDisplay(time);
-        uiController.updatePlayhead(time);
-        uiController.updateActiveSection(time);
-    });
-
-    audioEngine.on('ended', () => {
-        console.log('Playback ended');
-        // Reset UI to stopped state
-        uiController.updatePlayButtonIcon(false); // Show play icon
-        document.getElementById('stop-btn').disabled = true;
-    });
-
-    audioEngine.on('statechange', (state) => {
-        uiController.updatePlayheadVisibility(state);
-    });
-
-    // Handle decode start/end for visual feedback
-    audioEngine.on('decodestart', () => {
-        const playBtn = document.getElementById('play-btn');
-        const canvas = document.getElementById('waveform-canvas');
-        const wrapper = canvas?.parentElement;
-
-        playBtn?.classList.add('decoding');
-        wrapper?.classList.add('decoding');
-    });
-
-    audioEngine.on('decodeend', () => {
-        const playBtn = document.getElementById('play-btn');
-        const canvas = document.getElementById('waveform-canvas');
-        const wrapper = canvas?.parentElement;
-
-        playBtn?.classList.remove('decoding');
-        wrapper?.classList.remove('decoding');
-
-        // Redraw waveform with real audio data
-        if (waveformRenderer) {
-            waveformRenderer.render();
-        }
-    });
+    // Set up audio event listeners
+    setupAudioEventListeners();
 
     // Load audio from manifest
     try {
