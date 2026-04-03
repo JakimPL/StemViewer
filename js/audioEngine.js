@@ -337,6 +337,8 @@ export class AudioEngine {
         time = Math.max(0, Math.min(time, this.state.duration));
 
         if (wasPlaying) {
+            this.state.isPlaying = false;
+            this._stopTimeUpdates();
             this._stopAllSources();
         }
 
@@ -453,19 +455,22 @@ export class AudioEngine {
     _playStems(offset) {
         this.stems.forEach(stem => {
             // Create new source node (sources are one-shot)
-            stem.source = this.audioContext.createBufferSource();
-            stem.source.buffer = stem.buffer;
-            stem.source.connect(stem.gainNode);
+            const source = this.audioContext.createBufferSource();
+            source.buffer = stem.buffer;
+            source.connect(stem.gainNode);
 
-            // Handle ended event
-            stem.source.onended = () => {
-                if (this.state.isPlaying) {
+            // Handle ended event - capture source to verify it's still current
+            source.onended = () => {
+                // Only handle if this source is still the current one and we're playing
+                if (this.state.isPlaying && stem.source === source) {
                     this._handlePlaybackEnded();
                 }
             };
 
+            stem.source = source;
+
             // Start with synchronized offset
-            stem.source.start(0, offset);
+            source.start(0, offset);
         });
 
         // Recalculate gains based on current mute/solo state
@@ -479,17 +484,21 @@ export class AudioEngine {
     _playMix(offset) {
         const mix = this.mixNode;
 
-        mix.source = this.audioContext.createBufferSource();
-        mix.source.buffer = mix.buffer;
-        mix.source.connect(mix.gainNode);
+        const source = this.audioContext.createBufferSource();
+        source.buffer = mix.buffer;
+        source.connect(mix.gainNode);
 
-        mix.source.onended = () => {
-            if (this.state.isPlaying) {
+        // Handle ended event - capture source to verify it's still current
+        source.onended = () => {
+            // Only handle if this source is still the current one and we're playing
+            if (this.state.isPlaying && mix.source === source) {
                 this._handlePlaybackEnded();
             }
         };
 
-        mix.source.start(0, offset);
+        mix.source = source;
+
+        source.start(0, offset);
     }
 
     /**
@@ -525,6 +534,10 @@ export class AudioEngine {
      * @private
      */
     _handlePlaybackEnded() {
+        // Only handle if we're actually in a playing state
+        // WARNING: multiple stems trigger this event when they end as of now
+        // TODO: needs to be fixed
+        if (!this.state.isPlaying) return;
         this.stop();
         this._emit('ended');
     }

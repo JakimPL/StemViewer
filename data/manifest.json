@@ -2,8 +2,8 @@
     "song": {
         "title": "Sample Track",
         "artist": "Artist Name",
-        "duration": 225.5,
-        "durationFormatted": "3:45",
+        "duration": 200.0,
+        "durationFormatted": "3:20",
         "bpm": 120,
         "timeSignature": "4/4",
         "key": "C Major",
@@ -34,44 +34,32 @@
         {
             "name": "Intro",
             "startBar": 0,
-            "endBar": 8,
-            "startTime": 0,
-            "endTime": 16.0
+            "endBar": 8
         },
         {
             "name": "Verse 1",
             "startBar": 8,
-            "endBar": 24,
-            "startTime": 16.0,
-            "endTime": 48.0
+            "endBar": 24
         },
         {
             "name": "Chorus",
             "startBar": 24,
-            "endBar": 40,
-            "startTime": 48.0,
-            "endTime": 80.0
+            "endBar": 40
         },
         {
             "name": "Verse 2",
             "startBar": 40,
-            "endBar": 56,
-            "startTime": 80.0,
-            "endTime": 112.0
+            "endBar": 56
         },
         {
             "name": "Bridge",
             "startBar": 56,
-            "endBar": 72,
-            "startTime": 112.0,
-            "endTime": 144.0
+            "endBar": 96
         },
         {
             "name": "Outro",
-            "startBar": 72,
-            "endBar": 90,
-            "startTime": 144.0,
-            "endTime": 180.0
+            "startBar": 96,
+            "endBar": 100
         }
     ]
 }

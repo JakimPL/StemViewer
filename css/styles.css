@@ -194,6 +194,18 @@ body {
     padding: 8px 12px;
     display: flex;
     align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.section-marker.active {
+    border-left-color: #6b8fa3;
+}
+
+.section-marker:hover,
+.section-marker.active:hover {
+    border-left-color: #4ecdc4;
+    border-left-width: 3px;
 }
 
 .section-label {
@@ -205,6 +217,21 @@ body {
     border-radius: 4px;
     border: 1px solid #444;
     white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.section-marker.active .section-label {
+    color: #88b4d4;
+    border-color: #556673;
+    background-color: rgba(107, 143, 163, 0.1);
+}
+
+.section-marker:hover .section-label,
+.section-marker.active:hover .section-label {
+    font-weight: 700;
+    color: #4ecdc4;
+    border-color: #4ecdc4;
+    background-color: rgba(78, 205, 196, 0.15);
 }
 
 .time-ruler-row {
@@ -247,7 +274,7 @@ body {
 
 .bar-marker .time-label {
     font-weight: 600;
-    color: #aaa;
+    color: #666;
 }
 
 #waveform-canvas {
@@ -273,6 +300,56 @@ body {
     opacity: 1;
 }
 
+/* Hover line */
+.hover-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: #4ecdc4;
+    pointer-events: none;
+    z-index: 90;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.hover-line.visible {
+    opacity: 0.5;
+}
+
+/* Waveform hover tooltip */
+.waveform-tooltip {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.45);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    pointer-events: none;
+    z-index: 150;
+    font-size: 12px;
+    font-family: 'Courier New', monospace;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.waveform-tooltip.visible {
+    opacity: 1;
+}
+
+.waveform-tooltip .tooltip-time {
+    font-weight: bold;
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+
+.waveform-tooltip .tooltip-bar {
+    color: #4ecdc4;
+    font-size: 11px;
+}
+
 .time-display {
     position: absolute;
     top: 10px;
@@ -287,6 +364,7 @@ body {
     align-items: center;
     border: 1px solid #333;
     pointer-events: none;
+    z-index: 120;
 }
 
 .current-time {

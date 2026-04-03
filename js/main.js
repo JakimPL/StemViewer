@@ -188,12 +188,31 @@ function createSectionMarker(section) {
     div.style.left = `${section.leftPercent}%`;
     div.style.width = `${section.widthPercent}%`;
     div.dataset.sectionName = section.name;
+    div.dataset.startTime = section.startTime;
 
     const label = document.createElement('span');
     label.className = 'section-label';
     label.textContent = section.name;
 
     div.appendChild(label);
+
+    // Add click handler to seek to section and start playing
+    div.addEventListener('click', async () => {
+        if (!audioEngine) return;
+
+        const wasPlaying = audioEngine.getState().isPlaying;
+
+        await audioEngine.seek(section.startTime);
+
+        // Always start playing (even if was already playing)
+        if (!wasPlaying) {
+            await audioEngine.play();
+        }
+
+        updatePlayButtonIcon(true);
+        document.getElementById('stop-btn').disabled = false;
+    });
+
     return div;
 }
 
@@ -322,6 +341,29 @@ function updatePlayheadVisibility(state) {
 }
 
 /**
+ * Update active section highlighting based on current time
+ * @param {number} currentTime - Current time in seconds
+ */
+function updateActiveSection(currentTime = 0) {
+    const sections = manifest.sections;
+
+    // Find which section we're currently in
+    const currentSection = sections.find(section =>
+        currentTime >= section.startTime && currentTime < section.endTime
+    );
+
+    // Update visual state of all section markers
+    document.querySelectorAll('.section-marker').forEach(marker => {
+        const sectionName = marker.dataset.sectionName;
+        if (currentSection && sectionName === currentSection.name) {
+            marker.classList.add('active');
+        } else {
+            marker.classList.remove('active');
+        }
+    });
+}
+
+/**
  * Setup event listeners
  */
 function setupEventListeners() {
@@ -414,6 +456,9 @@ function setupEventListeners() {
             }
         }
     });
+
+    // Waveform hover tooltip
+    setupWaveformTooltip();
 }
 
 /**
@@ -433,6 +478,123 @@ function updatePlayButtonIcon(isPlaying) {
         svg.innerHTML = '<path d="M8 5v14l11-7z" />';
         playBtn.title = 'Play';
     }
+}
+
+/**
+ * Setup waveform hover tooltip
+ */
+function setupWaveformTooltip() {
+    const canvas = document.getElementById('waveform-canvas');
+    const tooltip = document.getElementById('waveform-tooltip');
+    const hoverLine = document.getElementById('hover-line');
+
+    if (!canvas || !tooltip || !hoverLine) return;
+
+    const TOOLTIP_OFFSET_Y = -60; // Position above cursor
+
+    // Show tooltip and hover line on mouse enter
+    canvas.addEventListener('mouseenter', () => {
+        tooltip.classList.add('visible');
+        hoverLine.classList.add('visible');
+    });
+
+    // Hide tooltip and hover line on mouse leave
+    canvas.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('visible');
+        hoverLine.classList.remove('visible');
+    });
+
+    // Update tooltip position and content on mouse move
+    canvas.addEventListener('mousemove', (e) => {
+        if (!manifest) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Calculate time from mouse X position
+        const percentage = mouseX / rect.width;
+        const time = percentage * manifest.song.duration;
+
+        // Calculate bar and beat from time
+        const { bar, beat } = calculateBarBeat(time, manifest.song.bpm, manifest.song.timeSignature);
+
+        // Update tooltip content
+        tooltip.querySelector('.tooltip-time').textContent = formatTime(time);
+        tooltip.querySelector('.tooltip-bar').textContent = `Bar ${bar}.${beat}`;
+
+        // Position tooltip near cursor
+        let tooltipX = mouseX;
+        let tooltipY = mouseY + TOOLTIP_OFFSET_Y;
+
+        // Keep tooltip within canvas bounds
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const tooltipWidth = tooltipRect.width;
+        const tooltipHeight = tooltipRect.height;
+
+        // Horizontal bounds
+        if (tooltipX + tooltipWidth > rect.width) {
+            tooltipX = rect.width - tooltipWidth;
+        }
+        if (tooltipX < 0) {
+            tooltipX = 0;
+        }
+
+        // Vertical bounds - flip to below cursor if too close to top
+        if (tooltipY < 0) {
+            tooltipY = mouseY + 20; // Position below cursor instead
+        }
+
+        tooltip.style.left = `${tooltipX}px`;
+        tooltip.style.top = `${tooltipY}px`;
+
+        // Position hover line at mouse X
+        hoverLine.style.left = `${mouseX}px`;
+    });
+
+    // Click to seek
+    canvas.addEventListener('click', async (e) => {
+        if (!manifest || !audioEngine) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+
+        // Calculate time from mouse X position
+        const percentage = mouseX / rect.width;
+        const time = percentage * manifest.song.duration;
+
+        // Seek to the clicked time
+        const wasPlaying = audioEngine.getState().isPlaying;
+        await audioEngine.seek(time);
+
+        // Start playing if not already playing
+        if (!wasPlaying) {
+            await audioEngine.play();
+            updatePlayButtonIcon(true);
+            document.getElementById('stop-btn').disabled = false;
+        }
+    });
+}
+
+/**
+ * Calculate bar and beat from time
+ * @param {number} time - Time in seconds
+ * @param {number} bpm - Beats per minute
+ * @param {string} timeSignature - Time signature (e.g., "4/4")
+ * @returns {Object} { bar, beat } - 1-indexed bar and beat numbers
+ */
+function calculateBarBeat(time, bpm, timeSignature) {
+    const [beatsPerBar] = timeSignature.split('/').map(Number);
+
+    // Calculate total beats elapsed
+    const secondsPerBeat = 60 / bpm;
+    const totalBeats = time / secondsPerBeat;
+
+    // Calculate bar (1-indexed) and beat within bar (1-indexed)
+    const bar = Math.floor(totalBeats / beatsPerBar) + 1;
+    const beat = Math.floor(totalBeats % beatsPerBar) + 1;
+
+    return { bar, beat };
 }
 
 /**
@@ -526,6 +688,7 @@ async function initializeAudio() {
     audioEngine.on('timeupdate', (time) => {
         updateTimeDisplay(time);
         updatePlayhead(time);
+        updateActiveSection(time);
     });
 
     audioEngine.on('ended', () => {
