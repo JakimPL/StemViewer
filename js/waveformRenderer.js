@@ -6,6 +6,8 @@
 const CANVAS_HORIZONTAL_OFFSET_PX = 1;
 const WAVEFORM_BACKGROUND_COLOR = '#1e1e1e';
 const WAVEFORM_STEM_ALPHA = 0.7;
+const WAVEFORM_MUTED_STEM_ALPHA = 0.3;
+const WAVEFORM_MUTED_STEM_COLOR = '#6d6d6d';
 const WAVEFORM_PLACEHOLDER_ALPHA = 0.3;
 const WAVEFORM_PLACEHOLDER_AMPLITUDE = 0.3;
 const WAVEFORM_HEIGHT_SCALE = 0.5;
@@ -104,6 +106,8 @@ export class WaveformRenderer {
 
             stemColors.forEach((color, stemIndex) => {
                 const stemHeight = stemHeights[stemIndex] || 0;
+                const stemId = this.manifest.stems[stemIndex]?.id;
+                const isStemMuted = Boolean(stemId && this.audioEngine?.stems.get(stemId)?.isMuted);
 
                 // Get amplitude - use real data if available, otherwise show placeholder
                 let amplitude;
@@ -114,8 +118,8 @@ export class WaveformRenderer {
                         this.manifest.song.duration,
                         barCount
                     );
-                    this.ctx.fillStyle = color;
-                    this.ctx.globalAlpha = WAVEFORM_STEM_ALPHA;
+                    this.ctx.fillStyle = isStemMuted ? WAVEFORM_MUTED_STEM_COLOR : color;
+                    this.ctx.globalAlpha = isStemMuted ? WAVEFORM_MUTED_STEM_ALPHA : WAVEFORM_STEM_ALPHA;
                 } else {
                     // Placeholder: flat gray bars at 30% height
                     amplitude = WAVEFORM_PLACEHOLDER_AMPLITUDE;

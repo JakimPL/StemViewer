@@ -218,6 +218,11 @@ function setupAudioEventListeners() {
 
     audioEngine.on('statechange', (state) => {
         uiController.updatePlayheadVisibility(state);
+
+        // Re-render waveform for visual state changes (e.g., mute/solo dimming).
+        if (waveformRenderer) {
+            waveformRenderer.render();
+        }
     });
 
     // Handle decode start/end for visual feedback
