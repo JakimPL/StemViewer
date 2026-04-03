@@ -30,6 +30,10 @@ export class AudioEngine {
         this.startTime = 0;      // audioContext.currentTime when play started
         this.pausedAt = 0;       // position when paused
 
+        // Decoding state
+        this.isAudioReady = false;  // true when all audio is decoded and ready
+        this.decodePromise = null;  // shared promise for concurrent decode attempts
+
         // Event listeners
         this.eventListeners = new Map();
     }
@@ -227,6 +231,33 @@ export class AudioEngine {
      * @private
      */
     async _decodeAudio() {
+        // If already decoding, return the existing promise
+        if (this.decodePromise) {
+            console.log('Decoding already in progress, waiting...');
+            return this.decodePromise;
+        }
+
+        // Emit decoding start event
+        this._emit('decodestart');
+
+        // Create a new decode promise
+        this.decodePromise = this._performDecode();
+
+        try {
+            await this.decodePromise;
+        } finally {
+            // Clear the promise once complete
+            this.decodePromise = null;
+            // Emit decoding end event
+            this._emit('decodeend');
+        }
+    }
+
+    /**
+     * Perform the actual decoding work
+     * @private
+     */
+    async _performDecode() {
         await this.initialize();
 
         // Decode stems
@@ -259,6 +290,9 @@ export class AudioEngine {
         }
 
         console.log('Audio decoding complete. Duration:', this.state.duration);
+
+        // Mark audio as ready
+        this.isAudioReady = true;
     }
 
     /**
@@ -266,13 +300,17 @@ export class AudioEngine {
      */
     async play() {
         // Decode audio on first play (requires user gesture for AudioContext)
-        if (!this.audioContext || this.stems.size > 0 && !Array.from(this.stems.values())[0].buffer) {
+        if (!this.isAudioReady) {
             await this._decodeAudio();
         }
 
         if (this.state.isPlaying) return;
 
+        // Set playing state immediately to prevent concurrent play() calls
+        this.state.isPlaying = true;
+
         const offset = this.pausedAt;
+        this.pausedAt = 0; // Reset pausedAt since we've incorporated it into startTime
         const mode = this.isMixMode ? 'mix' : 'stems';
 
         if (mode === 'mix' && this.mixNode) {
@@ -280,12 +318,11 @@ export class AudioEngine {
         } else if (mode === 'stems' && this.stems.size > 0) {
             this._playStems(offset);
         } else {
+            this.state.isPlaying = false; // Reset if we can't play
             throw new Error('No audio loaded to play');
         }
 
         this.startTime = this.audioContext.currentTime - offset;
-        this.pausedAt = 0; // Reset pausedAt since we've incorporated it into startTime
-        this.state.isPlaying = true;
         this.state.isPaused = false;
 
         this._emit('statechange', this.getState());

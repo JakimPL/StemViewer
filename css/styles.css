@@ -89,6 +89,12 @@ body {
     flex: 1;
     position: relative;
     min-height: 0;
+    transition: opacity 0.3s ease;
+}
+
+.waveform-canvas-wrapper.decoding {
+    opacity: 0.4;
+    pointer-events: none;
 }
 
 .stem-control-item {
@@ -282,6 +288,9 @@ body {
     height: 100%;
     background-color: #1e1e1e;
     cursor: pointer;
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .playhead {
@@ -406,6 +415,12 @@ body {
     cursor: pointer;
     color: #e0e0e0;
     transition: all 0.2s ease;
+}
+
+.control-btn.decoding {
+    opacity: 0.4;
+    cursor: wait;
+    pointer-events: none;
 }
 
 .control-btn:hover:not(:disabled) {

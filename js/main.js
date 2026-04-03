@@ -702,6 +702,25 @@ async function initializeAudio() {
         updatePlayheadVisibility(state);
     });
 
+    // Handle decode start/end for visual feedback
+    audioEngine.on('decodestart', () => {
+        const playBtn = document.getElementById('play-btn');
+        const canvas = document.getElementById('waveform-canvas');
+        const wrapper = canvas?.parentElement;
+
+        playBtn?.classList.add('decoding');
+        wrapper?.classList.add('decoding');
+    });
+
+    audioEngine.on('decodeend', () => {
+        const playBtn = document.getElementById('play-btn');
+        const canvas = document.getElementById('waveform-canvas');
+        const wrapper = canvas?.parentElement;
+
+        playBtn?.classList.remove('decoding');
+        wrapper?.classList.remove('decoding');
+    });
+
     // Load audio from manifest
     try {
         console.log('Loading audio from manifest...', manifest);
