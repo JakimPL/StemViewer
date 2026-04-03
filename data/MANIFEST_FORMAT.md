@@ -8,6 +8,7 @@ This file defines all metadata for your song, including song information, stems,
 {
   "song": { ... },
   "files": { ... },
+  "defaultMutedStems": { ... },
   "stems": [ ... ],
   "sections": [ ... ]
 }
@@ -227,6 +228,9 @@ The `durationFormatted` field is optional. If omitted, the app will auto-format 
   "files": {
     "mix": "music.mp3"
   },
+  "defaultMutedStems": {
+    "bass": true
+  },
   "stems": [
     {
       "id": "kick",
@@ -277,3 +281,26 @@ All file paths in the manifest are **relative to the `data/` folder**:
 - `"file": "stems/drums.mp3"` → looks for `data/stems/drums.mp3`
 
 Make sure your audio files are placed in the correct locations!
+
+## Default Muted Stems (Optional)
+
+Defines which stems should start muted by default.
+
+- **`defaultMutedStems`** (object): Dictionary of `stemId -> boolean`
+- If the dictionary is **missing**, all stems start unmuted (on)
+- If a stem key is **missing**, that stem starts unmuted (on)
+- If a stem value is `true`, that stem starts muted
+- If a stem value is `false`, that stem starts unmuted
+
+### Example:
+```json
+"defaultMutedStems": {
+  "bass": true,
+  "synth": false
+}
+```
+
+In this example:
+- `bass` starts muted
+- `synth` starts unmuted
+- any other stem not listed also starts unmuted

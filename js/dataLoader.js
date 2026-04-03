@@ -51,6 +51,23 @@ function validateManifest(manifest) {
         throw new Error('Manifest missing "sections" array');
     }
 
+    // Validate optional default muted stems map
+    if (manifest.defaultMutedStems === undefined) {
+        manifest.defaultMutedStems = {};
+    } else if (
+        manifest.defaultMutedStems === null ||
+        typeof manifest.defaultMutedStems !== 'object' ||
+        Array.isArray(manifest.defaultMutedStems)
+    ) {
+        throw new Error('Manifest "defaultMutedStems" must be an object map of stemId -> boolean');
+    }
+
+    Object.entries(manifest.defaultMutedStems).forEach(([stemId, isMuted]) => {
+        if (typeof isMuted !== 'boolean') {
+            throw new Error(`Manifest "defaultMutedStems.${stemId}" must be boolean`);
+        }
+    });
+
     // Validate song metadata
     const requiredSongFields = ['title', 'artist', 'duration', 'bpm'];
     for (const field of requiredSongFields) {
@@ -75,6 +92,14 @@ function validateManifest(manifest) {
 
     // Sort stems by order
     manifest.stems.sort((a, b) => a.order - b.order);
+
+    // Warn about default mute entries for unknown stems
+    const stemIds = new Set(manifest.stems.map(stem => stem.id));
+    Object.keys(manifest.defaultMutedStems).forEach(stemId => {
+        if (!stemIds.has(stemId)) {
+            console.warn(`defaultMutedStems contains unknown stem id: "${stemId}"`);
+        }
+    });
 
     // Validate sections
     manifest.sections.forEach((section, index) => {

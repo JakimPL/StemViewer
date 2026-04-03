@@ -360,6 +360,14 @@ async function initializeAudio() {
         console.log('Stems:', audioEngine.getStems());
         console.log('Duration:', audioEngine.getDuration());
 
+        // Sync initial stem mute/solo button states from audio engine
+        audioEngine.getStems().forEach(stem => {
+            uiController.updateStemButtons(stem.id, {
+                mute: stem.isMuted,
+                solo: stem.isSoloed
+            });
+        });
+
         // Set audio engine reference in waveform renderer
         if (waveformRenderer) {
             waveformRenderer.setAudioEngine(audioEngine);

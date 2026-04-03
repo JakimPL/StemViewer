@@ -79,7 +79,7 @@ export class AudioEngine {
                 buffer: null,              // Will be decoded later
                 source: null,
                 gainNode: null,            // Created when AudioContext exists
-                isMuted: false,
+                isMuted: metadata.defaultMuted === true,
                 isSoloed: false
             });
 
@@ -139,10 +139,12 @@ export class AudioEngine {
         // Load all stems in parallel
         if (manifest.stems && manifest.stems.length > 0) {
             for (const stem of manifest.stems) {
+                const defaultMuted = manifest.defaultMutedStems?.[stem.id] === true;
+
                 const stemPromise = this.loadStem(
                     stem.id,
                     stem.file,
-                    { name: stem.name, color: stem.color }
+                    { name: stem.name, color: stem.color, defaultMuted }
                 );
                 promises.push(stemPromise);
             }

@@ -1,4 +1,5 @@
 *.wav
 *.mp3
 *.json
-!manifest*.json
+
+data/stems/
