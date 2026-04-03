@@ -5,164 +5,213 @@
 
 import { calculateSectionPositions } from './utils.js';
 
-// Waveform rendering configuration
-// Adjust this value to change waveform detail level:
-// - Lower values (1-2) = more detail, more bars, denser waveform
-// - Higher values (4-8) = less detail, fewer bars, sparser waveform
-const WAVEFORM_PIXELS_PER_BAR = 4;
-
 /**
- * Initialize canvas and draw placeholder waveform
+ * WaveformRenderer class - Manages canvas-based waveform visualization
  */
-function initializeCanvas(manifest, audioEngine) {
-    const canvas = document.getElementById('waveform-canvas');
-    if (!canvas) return;
+export class WaveformRenderer {
+    /**
+     * Create a WaveformRenderer
+     * @param {HTMLCanvasElement} canvasElement - Canvas element to render on
+     * @param {Object} manifest - Song manifest with stems and sections
+     * @param {number} pixelsPerBar - Waveform detail level (default: 4)
+     */
+    constructor(canvasElement, manifest, pixelsPerBar = 4) {
+        this.canvas = canvasElement;
+        this.manifest = manifest;
+        this.pixelsPerBar = pixelsPerBar;
+        this.audioEngine = null;
+        this.ctx = canvasElement ? canvasElement.getContext('2d') : null;
+    }
 
-    const waveformContent = canvas.parentElement;
-    const rect = waveformContent.getBoundingClientRect();
+    /**
+     * Set audio engine reference
+     * @param {AudioEngine} audioEngine - Audio engine instance
+     */
+    setAudioEngine(audioEngine) {
+        this.audioEngine = audioEngine;
+    }
 
-    // Get sidebar width
-    const sidebar = document.querySelector('.stems-sidebar');
-    const sidebarWidth = sidebar ? sidebar.offsetWidth : 0;
+    /**
+     * Initialize canvas dimensions and render
+     */
+    resize() {
+        if (!this.canvas) return;
 
-    // Calculate available space for canvas
-    canvas.width = rect.width - sidebarWidth;
-    canvas.height = rect.height;
+        const waveformContent = this.canvas.parentElement;
+        const rect = waveformContent.getBoundingClientRect();
 
-    // Draw placeholder waveform using stem colors from manifest
-    drawPlaceholderWaveform(canvas, manifest, audioEngine);
-}
+        // Get sidebar width
+        const sidebar = document.querySelector('.stems-sidebar');
+        const sidebarWidth = sidebar ? sidebar.offsetWidth : 0;
 
-/**
- * Draw waveform on canvas (uses real audio data if available)
- * @param {HTMLCanvasElement} canvas - Canvas element
- */
-function drawPlaceholderWaveform(canvas, manifest, audioEngine) {
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#1e1e1e';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Calculate available space for canvas
+        this.canvas.width = rect.width - sidebarWidth;
+        this.canvas.height = rect.height;
 
-    if (!manifest) return;
+        // Render after resize
+        this.render();
+    }
 
-    // Calculate bar count based on canvas width and granularity
-    const barCount = Math.floor(canvas.width / WAVEFORM_PIXELS_PER_BAR);
-    const barWidth = canvas.width / barCount;
-    const stemColors = manifest.stems.map(s => s.color);
+    /**
+     * Render the waveform
+     */
+    render() {
+        if (!this.canvas || !this.ctx || !this.manifest) return;
 
-    // Get actual heights from DOM
-    const stemItems = document.querySelectorAll('.stem-control-item');
-    const stemHeights = Array.from(stemItems).map(item => item.offsetHeight);
+        // Clear canvas
+        this.ctx.fillStyle = '#1e1e1e';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Check if audio is decoded and we can use real waveform data
-    const useRealData = audioEngine && audioEngine.isAudioReady;
-    const stemBuffers = useRealData ? getAudioBuffers(audioEngine) : null;
+        // Calculate bar count based on canvas width and granularity
+        const barCount = Math.floor(this.canvas.width / this.pixelsPerBar);
+        const barWidth = this.canvas.width / barCount;
+        const stemColors = this.manifest.stems.map(s => s.color);
 
-    for (let i = 0; i < barCount; i++) {
-        let currentY = 0;
+        // Get actual heights from DOM
+        const stemItems = document.querySelectorAll('.stem-control-item');
+        const stemHeights = Array.from(stemItems).map(item => item.offsetHeight);
 
-        stemColors.forEach((color, stemIndex) => {
-            const stemHeight = stemHeights[stemIndex] || 0;
+        // Check if audio is decoded and we can use real waveform data
+        const useRealData = this.audioEngine && this.audioEngine.isAudioReady;
+        const stemBuffers = useRealData ? this._getAudioBuffers() : null;
 
-            // Get amplitude - use real data if available, otherwise show placeholder
-            let amplitude;
-            if (stemBuffers && stemBuffers[stemIndex]) {
-                amplitude = getAmplitudeAtPosition(stemBuffers[stemIndex], i / barCount);
-                ctx.fillStyle = color;
-                ctx.globalAlpha = 0.7;
-            } else {
-                // Placeholder: flat gray bars at 30% height
-                amplitude = 0.3;
-                ctx.fillStyle = '#444';
-                ctx.globalAlpha = 0.3;
-            }
+        // Render waveform bars
+        for (let i = 0; i < barCount; i++) {
+            let currentY = 0;
 
-            const height = stemHeight * amplitude * 0.5;
-            const y = currentY + (stemHeight - height) / 2;
+            stemColors.forEach((color, stemIndex) => {
+                const stemHeight = stemHeights[stemIndex] || 0;
 
-            ctx.fillRect(i * barWidth, y, barWidth - 1, height);
+                // Get amplitude - use real data if available, otherwise show placeholder
+                let amplitude;
+                if (stemBuffers && stemBuffers[stemIndex]) {
+                    amplitude = this._getAmplitudeAtPosition(stemBuffers[stemIndex], i / barCount);
+                    this.ctx.fillStyle = color;
+                    this.ctx.globalAlpha = 0.7;
+                } else {
+                    // Placeholder: flat gray bars at 30% height
+                    amplitude = 0.3;
+                    this.ctx.fillStyle = '#444';
+                    this.ctx.globalAlpha = 0.3;
+                }
 
-            currentY += stemHeight;
+                const height = stemHeight * amplitude * 0.5;
+                const y = currentY + (stemHeight - height) / 2;
+
+                this.ctx.fillRect(i * barWidth, y, barWidth - 1, height);
+
+                currentY += stemHeight;
+            });
+        }
+
+        this.ctx.globalAlpha = 1;
+
+        // If no real data, show instruction text
+        if (!stemBuffers) {
+            this.ctx.fillStyle = '#666';
+            this.ctx.font = '14px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(
+                'Click Play or click anywhere on the timeline to load waveforms',
+                this.canvas.width / 2,
+                this.canvas.height / 2
+            );
+        }
+
+        // Draw section dividers
+        this._drawSectionDividers();
+    }
+
+    /**
+     * Get time position from X coordinate on canvas
+     * @param {number} x - X coordinate on canvas
+     * @returns {number} Time in seconds
+     */
+    getTimeAtPosition(x) {
+        if (!this.canvas || !this.manifest) return 0;
+
+        const percentage = x / this.canvas.width;
+        return percentage * this.manifest.song.duration;
+    }
+
+    /**
+     * Draw section dividers on waveform
+     * @private
+     */
+    _drawSectionDividers() {
+        if (!this.manifest) return;
+
+        this.ctx.strokeStyle = '#555';
+        this.ctx.lineWidth = 2;
+
+        const sectionsWithPos = calculateSectionPositions(
+            this.manifest.sections,
+            this.manifest.song.duration
+        );
+
+        sectionsWithPos.forEach(section => {
+            const x = (section.leftPercent / 100) * this.canvas.width;
+            this.ctx.beginPath();
+            this.ctx.moveTo(x, 0);
+            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.stroke();
         });
     }
 
-    ctx.globalAlpha = 1;
+    /**
+     * Get audio buffers from audio engine
+     * @returns {Array<AudioBuffer>} Array of audio buffers for each stem
+     * @private
+     */
+    _getAudioBuffers() {
+        if (!this.audioEngine) return null;
 
-    // If no real data, show instruction text
-    if (!stemBuffers) {
-        ctx.fillStyle = '#666';
-        ctx.font = '14px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Click Play or click anywhere on the timeline to load waveforms', canvas.width / 2, canvas.height / 2);
+        const buffers = [];
+        this.audioEngine.stems.forEach(stem => {
+            if (stem.buffer) {
+                buffers.push(stem.buffer);
+            }
+        });
+
+        return buffers.length > 0 ? buffers : null;
     }
 
-    // Draw section dividers based on manifest sections
-    ctx.strokeStyle = '#555';
-    ctx.lineWidth = 2;
+    /**
+     * Calculate amplitude at a specific position in the audio buffer
+     * @param {AudioBuffer} buffer - Audio buffer
+     * @param {number} position - Position (0-1) in the buffer
+     * @returns {number} Amplitude (0-1)
+     * @private
+     */
+    _getAmplitudeAtPosition(buffer, position) {
+        const channelData = buffer.getChannelData(0); // Use first channel (mono or left)
+        const sampleCount = channelData.length;
 
-    const sectionsWithPos = calculateSectionPositions(manifest.sections, manifest.song.duration);
-    sectionsWithPos.forEach(section => {
-        const x = (section.leftPercent / 100) * canvas.width;
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
-    });
-}
+        // Calculate which samples to analyze for this position
+        // We want to downsample the buffer to match our bar count
+        const barCount = Math.floor(this.canvas.width / this.pixelsPerBar);
+        const samplesPerBar = Math.floor(sampleCount / barCount);
+        const startSample = Math.floor(position * sampleCount);
+        const endSample = Math.min(startSample + samplesPerBar, sampleCount);
 
-/**
- * Get audio buffers from audio engine
- * @returns {Array<AudioBuffer>} Array of audio buffers for each stem
- */
-function getAudioBuffers(audioEngine) {
-    if (!audioEngine) return null;
-
-    const buffers = [];
-    audioEngine.stems.forEach(stem => {
-        if (stem.buffer) {
-            buffers.push(stem.buffer);
+        // Calculate RMS (root mean square) amplitude for this window
+        let sum = 0;
+        let count = 0;
+        for (let i = startSample; i < endSample; i++) {
+            const sample = channelData[i];
+            sum += sample * sample;
+            count++;
         }
-    });
 
-    return buffers.length > 0 ? buffers : null;
-}
+        if (count === 0) return 0;
 
-/**
- * Calculate amplitude at a specific position in the audio buffer
- * @param {AudioBuffer} buffer - Audio buffer
- * @param {number} position - Position (0-1) in the buffer
- * @returns {number} Amplitude (0-1)
- */
-function getAmplitudeAtPosition(buffer, position) {
-    const channelData = buffer.getChannelData(0); // Use first channel (mono or left)
-    const sampleCount = channelData.length;
+        const rms = Math.sqrt(sum / count);
 
-    // Calculate which samples to analyze for this position
-    // We want to downsample the buffer to match our bar count
-    const canvas = document.getElementById('waveform-canvas');
-    const barCount = Math.floor(canvas.width / WAVEFORM_PIXELS_PER_BAR);
-    const samplesPerBar = Math.floor(sampleCount / barCount);
-    const startSample = Math.floor(position * sampleCount);
-    const endSample = Math.min(startSample + samplesPerBar, sampleCount);
+        // Normalize and apply scaling for better visibility
+        // RMS values are typically 0-0.3 for normal audio, so we scale up
+        const normalized = Math.min(rms * 3.5, 1.0);
 
-    // Calculate RMS (root mean square) amplitude for this window
-    let sum = 0;
-    let count = 0;
-    for (let i = startSample; i < endSample; i++) {
-        const sample = channelData[i];
-        sum += sample * sample;
-        count++;
+        return normalized;
     }
-
-    if (count === 0) return 0;
-
-    const rms = Math.sqrt(sum / count);
-
-    // Normalize and apply scaling for better visibility
-    // RMS values are typically 0-0.3 for normal audio, so we scale up
-    const normalized = Math.min(rms * 3.5, 1.0);
-
-    return normalized;
 }
-
-export { initializeCanvas, drawPlaceholderWaveform, WAVEFORM_PIXELS_PER_BAR };
