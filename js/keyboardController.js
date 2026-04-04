@@ -123,9 +123,7 @@ export class KeyboardController {
     muteAll() {
         this.withAudioEngine((audioEngine) => {
             const stems = audioEngine.getStems();
-            stems.forEach(stem => {
-                audioEngine.setMute(stem.id, true);
-            });
+            audioEngine.setAllMute(true);
 
             this.uiController.updateAllStemButtons(stems, { mute: true });
             this.showNotification('All tracks muted. Press U to unmute all.');
@@ -135,10 +133,7 @@ export class KeyboardController {
     unmuteAll() {
         this.withAudioEngine((audioEngine) => {
             const stems = audioEngine.getStems();
-            stems.forEach(stem => {
-                audioEngine.setMute(stem.id, false);
-                audioEngine.setSolo(stem.id, false);
-            });
+            audioEngine.clearAllMuteAndSolo();
 
             this.uiController.updateAllStemButtons(stems, { mute: false, solo: false });
             this.showNotification('All tracks unmuted. Press M to mute all.');

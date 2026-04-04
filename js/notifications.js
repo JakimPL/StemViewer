@@ -3,46 +3,66 @@
  * Handles user-facing notifications and error messages
  */
 
+const DEFAULT_NOTIFICATION_DURATION_MS = 3000;
+const NOTIFICATION_FADE_DURATION_MS = 300;
+
 /**
- * Notification manager with static methods for showing errors and temporary messages
+ * Render transient notifications and persistent error overlays.
  */
 export class NotificationManager {
     /**
-     * Show error message to user
+     * Render a persistent error overlay.
      * @param {string} message - Error message
      */
     static error(message) {
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-overlay';
-        errorDiv.textContent = message;
-        document.body.appendChild(errorDiv);
+        const errorOverlay = NotificationManager._createOverlay('error-overlay', message);
+        document.body.appendChild(errorOverlay);
     }
 
     /**
-     * Show temporary notification message to user
+     * Show a temporary notification.
+     * Procedure:
+     * 1) Remove any existing notification to keep a single active toast.
+     * 2) Render the new notification.
+     * 3) Fade it out after the requested duration and remove it from the DOM.
      * @param {string} message - Notification message
-     * @param {number} duration - Duration in milliseconds (default 3000)
+     * @param {number} duration - Duration in milliseconds
      */
-    static show(message, duration = 3000) {
-        // Remove any existing notification first
+    static show(message, duration = DEFAULT_NOTIFICATION_DURATION_MS) {
+        NotificationManager._removeExistingNotification();
+
+        const notificationOverlay = NotificationManager._createOverlay('notification-overlay', message);
+        document.body.appendChild(notificationOverlay);
+
+        NotificationManager._scheduleNotificationRemoval(notificationOverlay, duration);
+    }
+
+    static _createOverlay(className, message) {
+        const overlay = document.createElement('div');
+        overlay.className = className;
+        overlay.textContent = message;
+        return overlay;
+    }
+
+    static _removeExistingNotification() {
         const existingNotification = document.querySelector('.notification-overlay');
-        if (existingNotification) {
-            document.body.removeChild(existingNotification);
-        }
+        if (!existingNotification) return;
 
-        const notificationDiv = document.createElement('div');
-        notificationDiv.className = 'notification-overlay';
-        notificationDiv.textContent = message;
-        document.body.appendChild(notificationDiv);
+        existingNotification.remove();
+    }
 
-        // Fade out and remove after duration
+    static _scheduleNotificationRemoval(notificationOverlay, duration) {
         setTimeout(() => {
-            notificationDiv.style.opacity = '0';
-            setTimeout(() => {
-                if (notificationDiv.parentNode) {
-                    document.body.removeChild(notificationDiv);
-                }
-            }, 300); // Wait for fade transition to complete
+            NotificationManager._fadeOutAndRemove(notificationOverlay);
         }, duration);
+    }
+
+    static _fadeOutAndRemove(notificationOverlay) {
+        notificationOverlay.style.opacity = '0';
+        setTimeout(() => {
+            if (notificationOverlay.parentNode) {
+                notificationOverlay.remove();
+            }
+        }, NOTIFICATION_FADE_DURATION_MS);
     }
 }

@@ -551,6 +551,38 @@ export class AudioEngine {
         this._emit('statechange', this.getState());
     }
 
+    /**
+     * Mute or unmute every stem in one batched pass.
+     * Emits a single statechange after gain recalculation.
+     * @param {boolean} muted - Target mute state for all stems
+     */
+    setAllMute(muted) {
+        this.stems.forEach(stem => {
+            stem.isMuted = muted;
+
+            if (muted && stem.isSoloed) {
+                stem.isSoloed = false;
+            }
+        });
+
+        this._recalculateGains();
+        this._emit('statechange', this.getState());
+    }
+
+    /**
+     * Clear mute and solo across all stems in one batched pass.
+     * Emits a single statechange after gain recalculation.
+     */
+    clearAllMuteAndSolo() {
+        this.stems.forEach(stem => {
+            stem.isMuted = false;
+            stem.isSoloed = false;
+        });
+
+        this._recalculateGains();
+        this._emit('statechange', this.getState());
+    }
+
     // Private playback helpers
 
     /**
