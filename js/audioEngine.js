@@ -610,7 +610,7 @@ export class AudioEngine {
     _stopSource(source) {
         try {
             source.stop();
-        } catch (_) {}
+        } catch (_) { }
     }
 
     /**

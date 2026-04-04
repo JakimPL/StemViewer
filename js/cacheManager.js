@@ -7,8 +7,9 @@ const AUDIO_CACHE_NAME = 'stemviewer-audio-v1';
 const MANIFEST_SIGNATURE_KEY = 'stemviewer-manifest-signature';
 
 /**
- * Synchronize audio cache lifecycle with current manifest content.
- * If manifest changed, clear cached audio files and store new signature.
+ * Compare the current manifest signature against the last persisted signature.
+ * If they differ, reset audio cache contents so stale files are never reused,
+ * then persist the new signature for future runs.
  * @param {Object} manifest - Current manifest object
  * @returns {Promise<{cacheReset: boolean}>}
  */
@@ -28,38 +29,24 @@ export async function syncAudioCacheWithManifest(manifest) {
 }
 
 /**
- * Fetch an audio file as ArrayBuffer with CacheStorage fallback.
+ * Resolve an audio file as ArrayBuffer, preferring CacheStorage when available.
+ * Procedure:
+ * 1) Try CacheStorage lookup.
+ * 2) If missing, fetch from network.
+ * 3) Attempt cache write as best-effort, but never fail playback if caching fails.
  * @param {string} url - Audio file URL
  * @returns {Promise<ArrayBuffer>}
  */
 export async function fetchArrayBufferWithCache(url) {
-    // Fallback for environments without CacheStorage
-    if (typeof caches === 'undefined') {
+    if (!_isCacheStorageAvailable()) {
         return _fetchArrayBuffer(url);
     }
 
     const cache = await caches.open(AUDIO_CACHE_NAME);
-    const cachedResponse = await cache.match(url);
+    const cachedArrayBuffer = await _getCachedArrayBuffer(cache, url);
+    if (cachedArrayBuffer) return cachedArrayBuffer;
 
-    if (cachedResponse) {
-        console.log(`[Cache] Loaded from cache: ${url}`);
-        return cachedResponse.arrayBuffer();
-    }
-
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
-    }
-
-    // Best effort cache write - app should still work if this fails
-    try {
-        await cache.put(url, response.clone());
-        console.log(`[Cache] Fetched and cached new file: ${url}`);
-    } catch (error) {
-        console.warn(`[Cache] Failed to cache audio response: ${url}`, error);
-    }
-
-    return response.arrayBuffer();
+    return _fetchAndCacheArrayBuffer(cache, url);
 }
 
 /**
@@ -67,15 +54,47 @@ export async function fetchArrayBufferWithCache(url) {
  * @returns {Promise<void>}
  */
 export async function clearAudioCache() {
-    if (typeof caches === 'undefined') return;
+    if (!_isCacheStorageAvailable()) return;
     await caches.delete(AUDIO_CACHE_NAME);
 }
 
-async function _fetchArrayBuffer(url) {
+function _isCacheStorageAvailable() {
+    return typeof caches !== 'undefined';
+}
+
+async function _getCachedArrayBuffer(cache, url) {
+    const cachedResponse = await cache.match(url);
+    if (!cachedResponse) return null;
+
+    console.log(`[Cache] Loaded from cache: ${url}`);
+    return cachedResponse.arrayBuffer();
+}
+
+async function _fetchAndCacheArrayBuffer(cache, url) {
+    const response = await _fetchResponseOrThrow(url);
+    await _cacheResponseBestEffort(cache, url, response);
+    return response.arrayBuffer();
+}
+
+async function _fetchResponseOrThrow(url) {
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
     }
+    return response;
+}
+
+async function _cacheResponseBestEffort(cache, url, response) {
+    try {
+        await cache.put(url, response.clone());
+        console.log(`[Cache] Fetched and cached new file: ${url}`);
+    } catch (error) {
+        console.warn(`[Cache] Failed to cache audio response: ${url}`, error);
+    }
+}
+
+async function _fetchArrayBuffer(url) {
+    const response = await _fetchResponseOrThrow(url);
     return response.arrayBuffer();
 }
 
