@@ -277,28 +277,50 @@ export class AudioEngine {
     async _performDecode() {
         await this.initialize();
 
-        for (const [stemId, stem] of this.stems.entries()) {
-            if (!stem.buffer && stem.arrayBuffer) {
-                console.log(`Decoding stem: ${stemId}`);
-                await this._decodeStemBuffer(stem);
-
-                if (this.state.duration === 0) {
-                    this.state.duration = stem.buffer.duration;
-                }
-            }
-        }
+        await this._decodePendingStemsConcurrently();
 
         if (this.mixNode && !this.mixNode.buffer && this.mixNode.arrayBuffer) {
             console.log('Decoding mix');
             await this._decodeMixBuffer();
-
-            if (this.state.duration === 0) {
-                this.state.duration = this.mixNode.buffer.duration;
-            }
         }
+
+        this._setDurationFromDecodedAudio();
 
         console.log('Audio decoding complete. Duration:', this.state.duration);
         this.isAudioReady = true;
+    }
+
+    /**
+     * Decode all stems that have loaded arrayBuffers but no decoded AudioBuffer yet.
+     * @private
+     */
+    async _decodePendingStemsConcurrently() {
+        const pendingStems = Array.from(this.stems.entries())
+            .filter(([, stem]) => !stem.buffer && stem.arrayBuffer);
+
+        await Promise.all(pendingStems.map(async ([stemId, stem]) => {
+            console.log(`Decoding stem: ${stemId}`);
+            await this._decodeStemBuffer(stem);
+        }));
+    }
+
+    /**
+     * Fill duration from decoded audio only when manifest duration was absent.
+     * Prefers first decoded stem by map order, then falls back to decoded mix.
+     * @private
+     */
+    _setDurationFromDecodedAudio() {
+        if (this.state.duration > 0) return;
+
+        const firstDecodedStem = Array.from(this.stems.values()).find(stem => stem.buffer);
+        if (firstDecodedStem) {
+            this.state.duration = firstDecodedStem.buffer.duration;
+            return;
+        }
+
+        if (this.mixNode?.buffer) {
+            this.state.duration = this.mixNode.buffer.duration;
+        }
     }
 
     /**
