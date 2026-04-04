@@ -84,8 +84,7 @@ function _buildManifestSignature(manifest) {
         song: manifest.song,
         files: manifest.files,
         stems: manifest.stems,
-        sections: manifest.sections,
-        defaultMutedStems: manifest.defaultMutedStems || {}
+        sections: manifest.sections
     };
 
     return _stableStringify(relevantManifestData);

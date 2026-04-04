@@ -73,7 +73,43 @@ body {
 .waveform-board-scroll {
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #5f6e79 #20252a;
+}
+
+/* Chromium / Safari / Edge */
+.waveform-board-scroll::-webkit-scrollbar {
+    width: 12px;
+}
+
+.waveform-board-scroll::-webkit-scrollbar-track {
+    background: linear-gradient(180deg, #22272c 0%, #1b2025 100%);
+    border-left: 1px solid #2d353d;
+}
+
+.waveform-board-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #70808c 0%, #56636d 100%);
+    border: 2px solid #20252a;
+    border-radius: 999px;
+    min-height: 42px;
+}
+
+.waveform-board-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #7f919f 0%, #61717d 100%);
+}
+
+.waveform-board-scroll::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, #90a4b3 0%, #6d808d 100%);
+}
+
+.waveform-board-scroll::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 .waveform-content {

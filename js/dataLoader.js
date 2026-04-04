@@ -6,6 +6,8 @@
 import { barToSeconds, secondsToBar } from './utils.js';
 import { syncAudioCacheWithManifest } from './cacheManager.js';
 
+const STEM_DEFAULT_VOLUME_DB = 0;
+
 /**
  * Load manifest data from JSON file
  * @param {string} path - Path to manifest.json
@@ -53,56 +55,9 @@ function validateManifest(manifest) {
         throw new Error('Manifest missing "sections" array');
     }
 
-    // Validate optional default muted stems map
-    if (manifest.defaultMutedStems === undefined) {
-        manifest.defaultMutedStems = {};
-    } else if (
-        manifest.defaultMutedStems === null ||
-        typeof manifest.defaultMutedStems !== 'object' ||
-        Array.isArray(manifest.defaultMutedStems)
-    ) {
-        throw new Error('Manifest "defaultMutedStems" must be an object map of stemId -> boolean');
+    if (manifest.defaultMutedStems !== undefined || manifest.defaultSoloStems !== undefined || manifest.defaultStemVolumesDb !== undefined) {
+        throw new Error('Top-level default dictionaries are no longer supported. Use per-stem fields: mute, solo, volume.');
     }
-
-    Object.entries(manifest.defaultMutedStems).forEach(([stemId, isMuted]) => {
-        if (typeof isMuted !== 'boolean') {
-            throw new Error(`Manifest "defaultMutedStems.${stemId}" must be boolean`);
-        }
-    });
-
-    // Validate optional default solo stems map
-    if (manifest.defaultSoloStems === undefined) {
-        manifest.defaultSoloStems = {};
-    } else if (
-        manifest.defaultSoloStems === null ||
-        typeof manifest.defaultSoloStems !== 'object' ||
-        Array.isArray(manifest.defaultSoloStems)
-    ) {
-        throw new Error('Manifest "defaultSoloStems" must be an object map of stemId -> boolean');
-    }
-
-    Object.entries(manifest.defaultSoloStems).forEach(([stemId, isSoloed]) => {
-        if (typeof isSoloed !== 'boolean') {
-            throw new Error(`Manifest "defaultSoloStems.${stemId}" must be boolean`);
-        }
-    });
-
-    // Validate optional default stem volumes map (dB values)
-    if (manifest.defaultStemVolumesDb === undefined) {
-        manifest.defaultStemVolumesDb = {};
-    } else if (
-        manifest.defaultStemVolumesDb === null ||
-        typeof manifest.defaultStemVolumesDb !== 'object' ||
-        Array.isArray(manifest.defaultStemVolumesDb)
-    ) {
-        throw new Error('Manifest "defaultStemVolumesDb" must be an object map of stemId -> number');
-    }
-
-    Object.entries(manifest.defaultStemVolumesDb).forEach(([stemId, volumeDb]) => {
-        if (typeof volumeDb !== 'number' || !Number.isFinite(volumeDb)) {
-            throw new Error(`Manifest "defaultStemVolumesDb.${stemId}" must be a finite number (dB)`);
-        }
-    });
 
     // Validate song metadata
     const requiredSongFields = ['title', 'artist', 'duration', 'bpm'];
@@ -117,6 +72,33 @@ function validateManifest(manifest) {
         if (!stem.id || !stem.name || !stem.file) {
             throw new Error(`Stem at index ${index} missing required fields (id, name, file)`);
         }
+
+        if (stem.mute === undefined) {
+            stem.mute = false;
+        }
+        if (typeof stem.mute !== 'boolean') {
+            throw new Error(`Stem "${stem.id}" field "mute" must be boolean`);
+        }
+
+        if (stem.solo === undefined) {
+            stem.solo = false;
+        }
+        if (typeof stem.solo !== 'boolean') {
+            throw new Error(`Stem "${stem.id}" field "solo" must be boolean`);
+        }
+
+        if (stem.volume === undefined) {
+            stem.volume = STEM_DEFAULT_VOLUME_DB;
+        }
+        if (typeof stem.volume !== 'number' || !Number.isFinite(stem.volume)) {
+            throw new Error(`Stem "${stem.id}" field "volume" must be a finite number (dB)`);
+        }
+
+        // Solo is authoritative at startup.
+        if (stem.solo) {
+            stem.mute = false;
+        }
+
         if (!stem.color) {
             console.warn(`Stem "${stem.name}" missing color, using default`);
             stem.color = '#888888';
@@ -128,26 +110,6 @@ function validateManifest(manifest) {
 
     // Sort stems by order
     manifest.stems.sort((a, b) => a.order - b.order);
-
-    // Warn about default mute entries for unknown stems
-    const stemIds = new Set(manifest.stems.map(stem => stem.id));
-    Object.keys(manifest.defaultMutedStems).forEach(stemId => {
-        if (!stemIds.has(stemId)) {
-            console.warn(`defaultMutedStems contains unknown stem id: "${stemId}"`);
-        }
-    });
-
-    Object.keys(manifest.defaultSoloStems).forEach(stemId => {
-        if (!stemIds.has(stemId)) {
-            console.warn(`defaultSoloStems contains unknown stem id: "${stemId}"`);
-        }
-    });
-
-    Object.keys(manifest.defaultStemVolumesDb).forEach(stemId => {
-        if (!stemIds.has(stemId)) {
-            console.warn(`defaultStemVolumesDb contains unknown stem id: "${stemId}"`);
-        }
-    });
 
     // Validate sections
     manifest.sections.forEach((section, index) => {

@@ -78,9 +78,9 @@ export class AudioEngine {
                 buffer: null,
                 source: null,
                 gainNode: null,
-                isMuted: metadata.defaultMuted === true,
-                isSoloed: metadata.defaultSolo === true,
-                volumeDb: metadata.defaultVolumeDb ?? STEM_GAIN_DEFAULT_DB
+                isMuted: metadata.mute === true,
+                isSoloed: metadata.solo === true,
+                volumeDb: metadata.volume ?? STEM_GAIN_DEFAULT_DB
             });
 
             const arrayBuffer = await fetchArrayBufferWithCache(url);
@@ -100,6 +100,8 @@ export class AudioEngine {
             });
 
         } catch (error) {
+            // Remove placeholder so partially loaded stems are not treated as playable.
+            this.stems.delete(stemId);
             throw new Error(`Failed to load stem ${stemId}: ${error.message}`);
         }
     }
@@ -144,10 +146,10 @@ export class AudioEngine {
         // Load all stems in parallel
         if (manifest.stems && manifest.stems.length > 0) {
             for (const stem of manifest.stems) {
-                const defaultSolo = manifest.defaultSoloStems?.[stem.id] === true;
-                const defaultMuted = manifest.defaultMutedStems?.[stem.id] === true;
-                const resolvedDefaultMuted = defaultSolo ? false : defaultMuted;
-                const defaultVolumeDb = manifest.defaultStemVolumesDb?.[stem.id] ?? STEM_GAIN_DEFAULT_DB;
+                const solo = stem.solo === true;
+                const mute = stem.mute === true;
+                const resolvedMute = solo ? false : mute;
+                const volume = stem.volume ?? STEM_GAIN_DEFAULT_DB;
 
                 const stemPromise = this.loadStem(
                     stem.id,
@@ -156,9 +158,9 @@ export class AudioEngine {
                         name: stem.name,
                         color: stem.color,
                         order: stem.order,
-                        defaultMuted: resolvedDefaultMuted,
-                        defaultSolo,
-                        defaultVolumeDb
+                        mute: resolvedMute,
+                        solo,
+                        volume
                     }
                 );
                 promises.push(stemPromise);
@@ -339,13 +341,17 @@ export class AudioEngine {
         this.pausedAt = 0; // Reset pausedAt since we've incorporated it into startTime
         const mode = this.isMixMode ? 'mix' : 'stems';
 
-        if (mode === 'mix' && this.mixNode) {
-            this._playMix(offset);
-        } else if (mode === 'stems' && this.stems.size > 0) {
-            this._playStems(offset);
-        } else {
-            this.state.isPlaying = false; // Reset if we can't play
-            throw new Error('No audio loaded to play');
+        try {
+            if (mode === 'mix' && this.mixNode) {
+                this._playMix(offset);
+            } else if (mode === 'stems' && this.stems.size > 0) {
+                this._playStems(offset);
+            } else {
+                throw new Error('No audio loaded to play');
+            }
+        } catch (error) {
+            this.state.isPlaying = false;
+            throw error;
         }
 
         this.startTime = this.audioContext.currentTime - offset;
@@ -539,7 +545,13 @@ export class AudioEngine {
      * @private
      */
     _playStems(offset) {
-        this.stems.forEach(stem => {
+        const playableStems = Array.from(this.stems.values()).filter(stem => stem.buffer && stem.gainNode);
+
+        if (playableStems.length === 0) {
+            throw new Error('No decoded stems are available to play. Check audio file loading errors.');
+        }
+
+        playableStems.forEach(stem => {
             // Create new source node (sources are one-shot)
             const source = this.audioContext.createBufferSource();
             source.buffer = stem.buffer;
@@ -569,6 +581,10 @@ export class AudioEngine {
      */
     _playMix(offset) {
         const mix = this.mixNode;
+
+        if (!mix?.buffer || !mix?.gainNode) {
+            throw new Error('Mix is not decoded and ready for playback.');
+        }
 
         const source = this.audioContext.createBufferSource();
         source.buffer = mix.buffer;

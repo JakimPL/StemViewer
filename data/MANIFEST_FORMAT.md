@@ -8,9 +8,6 @@ This file defines all metadata for your song, including song information, stems,
 {
   "song": { ... },
   "files": { ... },
-  "defaultMutedStems": { ... },
-  "defaultSoloStems": { ... },
-  "defaultStemVolumesDb": { ... },
   "stems": [ ... ],
   "sections": [ ... ]
 }
@@ -75,6 +72,9 @@ Array of stem objects. Each stem represents an individual audio track.
 ### Optional Fields:
 - **`order`** (number): Display order (0-indexed). If omitted, uses array order
 - **`color`** (string): Hex color for waveform visualization (e.g., "#ff6b6b"). Default: "#888888"
+- **`mute`** (boolean): Start this stem muted. Default: `false`
+- **`solo`** (boolean): Start this stem soloed. Default: `false`
+- **`volume`** (number): Startup gain in dB for this stem. Default: `0.0`
 
 ### Example:
 ```json
@@ -230,38 +230,32 @@ The `durationFormatted` field is optional. If omitted, the app will auto-format 
   "files": {
     "mix": "music.mp3"
   },
-  "defaultMutedStems": {
-    "bass": true
-  },
-  "defaultSoloStems": {
-    "kick": true
-  },
-  "defaultStemVolumesDb": {
-    "kick": 1.5,
-    "bass": -3.0,
-    "synth": -1.0
-  },
   "stems": [
     {
       "id": "kick",
       "name": "Kick Drum",
       "file": "stems/kick.mp3",
       "order": 0,
-      "color": "#ff6b6b"
+      "color": "#ff6b6b",
+      "solo": true,
+      "volume": 1.5
     },
     {
       "id": "bass",
       "name": "Bass",
       "file": "stems/bass.mp3",
       "order": 1,
-      "color": "#4ecdc4"
+      "color": "#4ecdc4",
+      "mute": true,
+      "volume": -3.0
     },
     {
       "id": "synth",
       "name": "Synth Lead",
       "file": "stems/synth.mp3",
       "order": 2,
-      "color": "#ffe66d"
+      "color": "#ffe66d",
+      "volume": -1.0
     }
   ],
   "sections": [
@@ -292,71 +286,34 @@ All file paths in the manifest are **relative to the `data/` folder**:
 
 Make sure your audio files are placed in the correct locations!
 
-## Default Muted Stems (Optional)
+## Per-Stem Startup Parameters (Optional)
 
-Defines which stems should start muted by default.
+Each stem can define its own startup state directly in the `stems` array.
 
-- **`defaultMutedStems`** (object): Dictionary of `stemId -> boolean`
-- If the dictionary is **missing**, all stems start unmuted (on)
-- If a stem key is **missing**, that stem starts unmuted (on)
-- If a stem value is `true`, that stem starts muted
-- If a stem value is `false`, that stem starts unmuted
+- **`mute`** (boolean): Start muted (default `false`)
+- **`solo`** (boolean): Start soloed (default `false`)
+- **`volume`** (number): Start gain in dB (default `0.0`)
 
-### Example:
-```json
-"defaultMutedStems": {
-  "bass": true,
-  "synth": false
-}
-```
-
-In this example:
-- `bass` starts muted
-- `synth` starts unmuted
-- any other stem not listed also starts unmuted
-
-## Default Solo Stems (Optional)
-
-Defines which stems should start soloed by default.
-
-- **`defaultSoloStems`** (object): Dictionary of `stemId -> boolean`
-- If the dictionary is **missing**, all stems start not soloed
-- If a stem key is **missing**, that stem starts not soloed
-- If one or more stems are set to `true`, those stems are soloed on startup
-- If a stem is both muted and soloed by defaults, solo wins and mute is ignored for that stem
+Rules:
+- If `solo` is `true`, solo takes precedence and that stem is treated as unmuted at startup.
+- If none of these fields are provided, the stem starts unmuted, not soloed, at `0.0` dB.
 
 ### Example:
 ```json
-"defaultSoloStems": {
-  "kick": true,
-  "synth": true
-}
+"stems": [
+  {
+    "id": "kick",
+    "name": "Kick",
+    "file": "stems/kick.mp3",
+    "solo": true,
+    "volume": 2.0
+  },
+  {
+    "id": "bass",
+    "name": "Bass",
+    "file": "stems/bass.mp3",
+    "mute": true,
+    "volume": -4.5
+  }
+]
 ```
-
-In this example:
-- `kick` and `synth` start soloed
-- all other stems are suppressed until solo is cleared
-
-## Default Stem Volumes (Optional)
-
-Defines startup gain values (in dB) per stem.
-
-- **`defaultStemVolumesDb`** (object): Dictionary of `stemId -> number`
-- Values are in decibels and are clamped by the app to the supported range
-- If the dictionary is **missing**, all stems default to `0.0` dB
-- If a stem key is **missing**, that stem defaults to `0.0` dB
-
-### Example:
-```json
-"defaultStemVolumesDb": {
-  "kick": 2.0,
-  "bass": -4.5,
-  "vocal": 1.0
-}
-```
-
-In this example:
-- `kick` starts boosted by +2.0 dB
-- `bass` starts reduced by -4.5 dB
-- `vocal` starts boosted by +1.0 dB
-- any other stem not listed starts at 0.0 dB
