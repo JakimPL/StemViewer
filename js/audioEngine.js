@@ -14,17 +14,12 @@ const STEM_GAIN_MAX_DB = 12.0;
  */
 export class AudioEngine {
     constructor() {
-        // Web Audio API context
         this.audioContext = null;
+        this.stems = new Map();  // Map<stemId, StemNode>
 
-        // Stem storage: Map<stemId, StemNode>
-        this.stems = new Map();
-
-        // Mix mode (single file fallback)
         this.mixNode = null;
         this.isMixMode = false;
 
-        // Playback state
         this.state = {
             isPlaying: false,
             isPaused: false,
@@ -32,35 +27,35 @@ export class AudioEngine {
             duration: 0
         };
 
-        // Time tracking
-        this.startTime = 0;      // audioContext.currentTime when play started
-        this.pausedAt = 0;       // position when paused
+        this.startTime = 0;   // audioContext.currentTime at the moment play() was called
+        this.pausedAt = 0;    // track position across pause/resume
 
-        // Decoding state
-        this.isAudioReady = false;  // true when all audio is decoded and ready
-        this.decodePromise = null;  // shared promise for concurrent decode attempts
+        this.isAudioReady = false;
+        this.decodePromise = null;  // deduplicate concurrent decode calls
 
-        // Event listeners
         this.eventListeners = new Map();
     }
 
     /**
-     * Initialize audio context (required for user interaction on some browsers)
+     * Create or resume the AudioContext.
+     * Must be triggered from a user gesture; browsers suspend AudioContext
+     * automatically until the user interacts with the page.
      */
     async initialize() {
         if (!this.audioContext) {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
         }
 
-        // Resume context if suspended (required by autoplay policy)
-        // This needs to be called from a user gesture (like clicking play button)
         if (this.audioContext.state === 'suspended') {
             await this.audioContext.resume();
         }
     }
 
     /**
-     * Load a single stem from URL
+     * Fetch and store raw audio data for a single stem.
+     * A placeholder entry is inserted into the Map before the fetch starts so that
+     * Map insertion order matches the manifest, regardless of which fetch completes first.
+     * On any failure the placeholder is removed so callers see a clean state.
      * @param {string} stemId - Unique identifier for the stem
      * @param {string} url - URL to audio file
      * @param {Object} metadata - Additional stem metadata (name, color)
@@ -68,7 +63,6 @@ export class AudioEngine {
      */
     async loadStem(stemId, url, metadata = {}) {
         try {
-            // Insert placeholder immediately so map order follows manifest order, not fetch completion order.
             this.stems.set(stemId, {
                 id: stemId,
                 name: metadata.name || stemId,
@@ -100,7 +94,6 @@ export class AudioEngine {
             });
 
         } catch (error) {
-            // Remove placeholder so partially loaded stems are not treated as playable.
             this.stems.delete(stemId);
             throw new Error(`Failed to load stem ${stemId}: ${error.message}`);
         }
@@ -115,7 +108,6 @@ export class AudioEngine {
         try {
             const arrayBuffer = await fetchArrayBufferWithCache(url);
 
-            // Store raw buffer - will decode on first play
             this.mixNode = {
                 arrayBuffer: arrayBuffer,
                 buffer: null,
@@ -131,19 +123,18 @@ export class AudioEngine {
     }
 
     /**
-     * Load all audio from manifest
+     * Load all stems and optional mix file from the manifest in parallel.
+     * Duration is read from manifest metadata immediately, before any decoding.
      * @param {Object} manifest - Song manifest with stems/mix info
      * @returns {Promise<void>}
      */
     async loadFromManifest(manifest) {
-        // Set duration from manifest (before decoding)
         if (manifest.song && manifest.song.duration) {
             this.state.duration = manifest.song.duration;
         }
 
         const promises = [];
 
-        // Load all stems in parallel
         if (manifest.stems && manifest.stems.length > 0) {
             for (const stem of manifest.stems) {
                 const solo = stem.solo === true;
@@ -167,7 +158,6 @@ export class AudioEngine {
             }
         }
 
-        // Load mix if available
         if (manifest.files && manifest.files.mix) {
             promises.push(this.loadMix(manifest.files.mix));
         }
@@ -255,62 +245,52 @@ export class AudioEngine {
     // Playback control methods
 
     /**
-     * Decode all loaded audio (called on first play - requires user gesture)
+     * Decode all loaded audio buffers. Safe to call concurrently: any
+     * overlapping calls join the same in-flight promise rather than
+     * starting a second decode pass.
+     * Must be triggered from a user gesture so AudioContext can be resumed.
      * @private
      */
     async _decodeAudio() {
-        // If already decoding, return the existing promise
         if (this.decodePromise) {
             console.log('Decoding already in progress, waiting...');
             return this.decodePromise;
         }
 
-        // Emit decoding start event
         this._emit('decodestart');
-
-        // Create a new decode promise
         this.decodePromise = this._performDecode();
 
         try {
             await this.decodePromise;
         } finally {
-            // Clear the promise once complete
             this.decodePromise = null;
-            // Emit decoding end event
             this._emit('decodeend');
         }
     }
 
     /**
-     * Perform the actual decoding work
+     * Decode all pending arrayBuffers and wire their gain nodes.
+     * Falls back to reading duration from a decoded buffer if the manifest
+     * did not provide one.
      * @private
      */
     async _performDecode() {
         await this.initialize();
 
-        // Decode stems
         for (const [stemId, stem] of this.stems.entries()) {
             if (!stem.buffer && stem.arrayBuffer) {
                 console.log(`Decoding stem: ${stemId}`);
-                stem.buffer = await this.audioContext.decodeAudioData(stem.arrayBuffer.slice(0));
+                await this._decodeStemBuffer(stem);
 
-                // Create gain node
-                stem.gainNode = this.audioContext.createGain();
-                stem.gainNode.connect(this.audioContext.destination);
-
-                // Update duration from first decoded stem
                 if (this.state.duration === 0) {
                     this.state.duration = stem.buffer.duration;
                 }
             }
         }
 
-        // Decode mix
         if (this.mixNode && !this.mixNode.buffer && this.mixNode.arrayBuffer) {
             console.log('Decoding mix');
-            this.mixNode.buffer = await this.audioContext.decodeAudioData(this.mixNode.arrayBuffer.slice(0));
-            this.mixNode.gainNode = this.audioContext.createGain();
-            this.mixNode.gainNode.connect(this.audioContext.destination);
+            await this._decodeMixBuffer();
 
             if (this.state.duration === 0) {
                 this.state.duration = this.mixNode.buffer.duration;
@@ -318,27 +298,45 @@ export class AudioEngine {
         }
 
         console.log('Audio decoding complete. Duration:', this.state.duration);
-
-        // Mark audio as ready
         this.isAudioReady = true;
     }
 
     /**
-     * Play audio (from beginning or resume from pause)
+     * Decode a stem's raw arrayBuffer and wire a new GainNode to the destination.
+     * @private
+     */
+    async _decodeStemBuffer(stem) {
+        stem.buffer = await this.audioContext.decodeAudioData(stem.arrayBuffer.slice(0));
+        stem.gainNode = this.audioContext.createGain();
+        stem.gainNode.connect(this.audioContext.destination);
+    }
+
+    /**
+     * Decode the mix arrayBuffer and wire a new GainNode to the destination.
+     * @private
+     */
+    async _decodeMixBuffer() {
+        this.mixNode.buffer = await this.audioContext.decodeAudioData(this.mixNode.arrayBuffer.slice(0));
+        this.mixNode.gainNode = this.audioContext.createGain();
+        this.mixNode.gainNode.connect(this.audioContext.destination);
+    }
+
+    /**
+     * Start or resume playback.
+     * Decodes audio on the first call (requires prior user gesture for AudioContext).
+     * Sets isPlaying immediately to prevent re-entrant calls; restores it on error.
      */
     async play() {
-        // Decode audio on first play (requires user gesture for AudioContext)
         if (!this.isAudioReady) {
             await this._decodeAudio();
         }
 
         if (this.state.isPlaying) return;
 
-        // Set playing state immediately to prevent concurrent play() calls
         this.state.isPlaying = true;
 
         const offset = this.pausedAt;
-        this.pausedAt = 0; // Reset pausedAt since we've incorporated it into startTime
+        this.pausedAt = 0;
         const mode = this.isMixMode ? 'mix' : 'stems';
 
         try {
@@ -367,10 +365,7 @@ export class AudioEngine {
     pause() {
         if (!this.state.isPlaying) return;
 
-        // Calculate current position
         this.pausedAt = this.getCurrentTime();
-
-        // Stop all sources
         this._stopAllSources();
 
         this.state.isPlaying = false;
@@ -402,7 +397,6 @@ export class AudioEngine {
     async seek(time) {
         const wasPlaying = this.state.isPlaying;
 
-        // Clamp time to valid range
         time = Math.max(0, Math.min(time, this.state.duration));
 
         if (wasPlaying) {
@@ -422,7 +416,7 @@ export class AudioEngine {
     }
 
     /**
-     * Toggle mute state for a stem
+     * Toggle mute for a stem. Muting also clears any active solo on that stem.
      * @param {string} stemId - Stem identifier
      * @returns {boolean} New mute state
      */
@@ -435,7 +429,6 @@ export class AudioEngine {
 
         stem.isMuted = !stem.isMuted;
 
-        // If muting, also clear solo state
         if (stem.isMuted && stem.isSoloed) {
             stem.isSoloed = false;
         }
@@ -447,9 +440,11 @@ export class AudioEngine {
     }
 
     /**
-     * Toggle solo state for a stem
+     * Toggle solo for a stem. Soloing also clears the stem's mute state.
+     * When exclusive=true and the stem is being soloed (not un-soloed),
+     * all other stems are un-soloed first, producing a single-stem solo.
      * @param {string} stemId - Stem identifier
-     * @param {boolean} exclusive - If true, un-solo all other stems first
+     * @param {boolean} exclusive - Un-solo all other stems before soloing
      * @returns {boolean} New solo state
      */
     toggleSolo(stemId, exclusive = false) {
@@ -459,18 +454,14 @@ export class AudioEngine {
             return false;
         }
 
-        // If exclusive and we're about to solo (not un-solo), clear all other solos first
         if (exclusive && !stem.isSoloed) {
             this.stems.forEach((s, id) => {
-                if (id !== stemId) {
-                    s.isSoloed = false;
-                }
+                if (id !== stemId) s.isSoloed = false;
             });
         }
 
         stem.isSoloed = !stem.isSoloed;
 
-        // If soloing, also clear mute state
         if (stem.isSoloed && stem.isMuted) {
             stem.isMuted = false;
         }
@@ -541,7 +532,7 @@ export class AudioEngine {
     // Private playback helpers
 
     /**
-     * Play all stems with synchronized start
+     * Start all decoded stems simultaneously at the given offset.
      * @private
      */
     _playStems(offset) {
@@ -551,32 +542,31 @@ export class AudioEngine {
             throw new Error('No decoded stems are available to play. Check audio file loading errors.');
         }
 
-        playableStems.forEach(stem => {
-            // Create new source node (sources are one-shot)
-            const source = this.audioContext.createBufferSource();
-            source.buffer = stem.buffer;
-            source.connect(stem.gainNode);
-
-            // Handle ended event - capture source to verify it's still current
-            source.onended = () => {
-                // Only handle if this source is still the current one and we're playing
-                if (this.state.isPlaying && stem.source === source) {
-                    this._handlePlaybackEnded();
-                }
-            };
-
-            stem.source = source;
-
-            // Start with synchronized offset
-            source.start(0, offset);
-        });
-
-        // Recalculate gains based on current mute/solo state
+        playableStems.forEach(stem => this._startStemSource(stem, offset));
         this._recalculateGains();
     }
 
     /**
-     * Play mix file
+     * Create and start a one-shot BufferSource for a single stem.
+     * Web Audio source nodes cannot be restarted; a new one is created on each play.
+     * The onended handler is guarded against stale references from seek/stop cycles.
+     * @private
+     */
+    _startStemSource(stem, offset) {
+        const source = this.audioContext.createBufferSource();
+        source.buffer = stem.buffer;
+        source.connect(stem.gainNode);
+        source.onended = () => {
+            if (this.state.isPlaying && stem.source === source) {
+                this._handlePlaybackEnded();
+            }
+        };
+        stem.source = source;
+        source.start(0, offset);
+    }
+
+    /**
+     * Start the mix file at the given offset.
      * @private
      */
     _playMix(offset) {
@@ -589,56 +579,47 @@ export class AudioEngine {
         const source = this.audioContext.createBufferSource();
         source.buffer = mix.buffer;
         source.connect(mix.gainNode);
-
-        // Handle ended event - capture source to verify it's still current
         source.onended = () => {
-            // Only handle if this source is still the current one and we're playing
             if (this.state.isPlaying && mix.source === source) {
                 this._handlePlaybackEnded();
             }
         };
-
         mix.source = source;
-
         source.start(0, offset);
     }
 
-    /**
-     * Stop all active audio sources
-     * @private
-     */
     _stopAllSources() {
-        // Stop stems
         this.stems.forEach(stem => {
             if (stem.source) {
-                try {
-                    stem.source.stop();
-                } catch (e) {
-                    // Source may already be stopped
-                }
+                this._stopSource(stem.source);
                 stem.source = null;
             }
         });
 
-        // Stop mix
-        if (this.mixNode && this.mixNode.source) {
-            try {
-                this.mixNode.source.stop();
-            } catch (e) {
-                // Source may already be stopped
-            }
+        if (this.mixNode?.source) {
+            this._stopSource(this.mixNode.source);
             this.mixNode.source = null;
         }
     }
 
     /**
-     * Handle playback reaching the end
+     * Stop a Web Audio source node, ignoring errors for sources that have
+     * already played to completion (calling stop() on them throws).
+     * @private
+     */
+    _stopSource(source) {
+        try {
+            source.stop();
+        } catch (_) {}
+    }
+
+    /**
+     * Called by onended on each stem source when it finishes playing.
+     * All stems end simultaneously, so this fires multiple times per song end.
+     * The isPlaying guard ensures only the first call triggers the stop/ended sequence.
      * @private
      */
     _handlePlaybackEnded() {
-        // Only handle if we're actually in a playing state
-        // WARNING: multiple stems trigger this event when they end as of now
-        // TODO: needs to be fixed
         if (!this.state.isPlaying) return;
         this.stop();
         this._emit('ended');
@@ -676,28 +657,32 @@ export class AudioEngine {
     }
 
     /**
-     * Recalculate gain values based on mute/solo state
-     * Solo takes precedence: if any stem is soloed, only soloed stems are audible
+     * Apply gain to all decoded stems based on current mute/solo state.
+     * Solo takes precedence: if any stem is soloed, only soloed stems are audible.
      * @private
      */
     _recalculateGains() {
-        // Check if any stem is soloed
         const anySoloed = Array.from(this.stems.values()).some(stem => stem.isSoloed);
 
         this.stems.forEach(stem => {
-            // Skip if gainNode doesn't exist yet (audio not decoded)
             if (!stem.gainNode) return;
 
-            // Calculate if stem should be audible
-            const shouldBeAudible = stem.isSoloed || (!anySoloed && !stem.isMuted);
-            const stemGainLinear = Math.pow(10, (stem.volumeDb ?? STEM_GAIN_DEFAULT_DB) / 20);
+            const gain = this._isStemAudible(stem, anySoloed)
+                ? this._dbToLinear(stem.volumeDb ?? STEM_GAIN_DEFAULT_DB)
+                : 0.0;
 
-            // Set gain instantly
-            stem.gainNode.gain.setValueAtTime(
-                shouldBeAudible ? stemGainLinear : 0.0,
-                this.audioContext.currentTime
-            );
+            stem.gainNode.gain.setValueAtTime(gain, this.audioContext.currentTime);
         });
+    }
+
+    /** @private */
+    _isStemAudible(stem, anySoloed) {
+        return stem.isSoloed || (!anySoloed && !stem.isMuted);
+    }
+
+    /** @private */
+    _dbToLinear(db) {
+        return Math.pow(10, db / 20);
     }
 
     /**
