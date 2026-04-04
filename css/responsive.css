@@ -1,0 +1,66 @@
+@media (max-width: 768px) {
+    .song-title {
+        font-size: 1.5rem;
+    }
+
+    .song-meta {
+        font-size: 0.85rem;
+        flex-wrap: wrap;
+    }
+
+    .app-container {
+        padding: 12px;
+    }
+
+    .section-label {
+        font-size: 0.7rem;
+        padding: 3px 6px;
+    }
+
+    .time-display {
+        font-size: 0.75rem;
+        padding: 6px 8px;
+        top: 45px;
+        right: 8px;
+    }
+
+    .current-bar {
+        display: none;
+    }
+
+    .control-btn {
+        width: 48px;
+        height: 48px;
+    }
+
+    .control-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .stems-sidebar {
+        width: 100px;
+    }
+
+    .stem-name {
+        font-size: 0.7rem;
+    }
+
+    .stem-btn {
+        height: 24px;
+        font-size: 0.65rem;
+    }
+
+    .waveform-container {
+        height: 250px;
+    }
+
+    .metadata-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .metadata-value {
+        font-size: 0.8rem;
+    }
+}

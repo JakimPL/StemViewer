@@ -1,0 +1,125 @@
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.song-header {
+    text-align: center;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+}
+
+.song-title {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #ffffff;
+}
+
+.song-meta {
+    font-size: 0.95rem;
+    color: #999999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.artist-name {
+    font-weight: 500;
+}
+
+.separator {
+    opacity: 0.5;
+}
+
+.waveform-container {
+    flex: 1;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    margin-bottom: 20px;
+    background-color: #242424;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.waveform-board-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #5f6e79 #20252a;
+}
+
+/* Chromium / Safari / Edge */
+.waveform-board-scroll::-webkit-scrollbar {
+    width: 12px;
+}
+
+.waveform-board-scroll::-webkit-scrollbar-track {
+    background: linear-gradient(180deg, #22272c 0%, #1b2025 100%);
+    border-left: 1px solid #2d353d;
+}
+
+.waveform-board-scroll::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #70808c 0%, #56636d 100%);
+    border: 2px solid #20252a;
+    border-radius: 999px;
+    min-height: 42px;
+}
+
+.waveform-board-scroll::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #7f919f 0%, #61717d 100%);
+}
+
+.waveform-board-scroll::-webkit-scrollbar-thumb:active {
+    background: linear-gradient(180deg, #90a4b3 0%, #6d808d 100%);
+}
+
+.waveform-board-scroll::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+.waveform-content {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+.waveform-spacer {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    border-right: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+}
+
+.stems-sidebar {
+    flex: 1;
+    background-color: #2a2a2a;
+    overflow: visible;
+    min-height: 0;
+}
+
+.waveform-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    transition: opacity 0.3s ease;
+}
+
+.waveform-canvas-wrapper.decoding {
+    opacity: 0.4;
+    pointer-events: none;
+}

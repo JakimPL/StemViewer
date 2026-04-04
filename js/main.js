@@ -12,7 +12,8 @@ import { UIController } from './uiController.js';
 import { KeyboardController } from './keyboardController.js';
 import { NotificationManager } from './notifications.js';
 
-// Application state
+const TOOLTIP_OFFSET_Y = -60;
+
 let manifest = null;
 let audioEngine = null;
 let waveformRenderer = null;
@@ -20,20 +21,15 @@ let songMetrics = null;
 let uiController = null;
 let keyboardController = null;
 
-// Initialize application when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        // Load manifest data
         manifest = await loadManifest();
         console.log('Manifest loaded:', manifest);
 
-        // Create song metrics helper
         songMetrics = new SongMetrics(manifest);
 
-        // Create UI controller
         uiController = new UIController(manifest, songMetrics, () => audioEngine);
 
-        // Create keyboard controller
         keyboardController = new KeyboardController(
             () => audioEngine,
             uiController,
@@ -41,18 +37,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             NotificationManager.show
         );
 
-        // Initialize UI with manifest data
         initializeUI();
 
-        // Setup UI event listeners
         setupUIEventListeners();
 
-        // Initialize waveform renderer
         const canvas = document.getElementById('waveform-canvas');
         waveformRenderer = new WaveformRenderer(canvas, manifest, songMetrics);
         waveformRenderer.resize();
 
-        // Initialize audio engine
         await initializeAudio();
 
     } catch (error) {
@@ -67,7 +59,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 function initializeUI() {
     uiController.initialize();
 
-    // Adjust stem heights after layout is complete
     requestAnimationFrame(() => {
         uiController.adjustStemHeights();
         if (waveformRenderer) {
@@ -75,7 +66,6 @@ function initializeUI() {
         }
     });
 
-    // Disable transport controls until audio is loaded
     document.getElementById('play-btn').disabled = true;
     document.getElementById('stop-btn').disabled = true;
 }
@@ -95,7 +85,6 @@ function setupUIEventListeners() {
  * Setup window resize listener
  */
 function setupWindowResizeListener() {
-    // Window resize
     window.addEventListener('resize', () => {
         uiController.adjustStemHeights();
         if (waveformRenderer) {
@@ -112,37 +101,42 @@ function setupTransportControls() {
     const playBtn = document.getElementById('play-btn');
     const stopBtn = document.getElementById('stop-btn');
 
-    // Play/Pause toggle button
     playBtn.addEventListener('click', async () => {
-        if (!audioEngine) return;
-
-        try {
-            const state = audioEngine.getState();
-
-            if (state.isPlaying) {
-                // Currently playing → pause
-                audioEngine.pause();
-                uiController.updatePlayButtonIcon(false); // Show play icon
-            } else {
-                // Currently paused or stopped → play
-                await audioEngine.play();
-                uiController.updatePlayButtonIcon(true); // Show pause icon
-                stopBtn.disabled = false;
-            }
-        } catch (error) {
-            console.error('Play/Pause failed:', error);
-            NotificationManager.error('Failed to play audio: ' + error.message);
-        }
+        await handlePlayPauseClick(stopBtn);
     });
 
     stopBtn.addEventListener('click', () => {
         if (!audioEngine) return;
 
         audioEngine.stop();
-        uiController.updatePlayButtonIcon(false); // Show play icon
+        uiController.updatePlayButtonIcon(false);
         stopBtn.disabled = true;
-        uiController.updatePlayhead(0); // Reset playhead to beginning
+        uiController.updatePlayhead(0);
     });
+}
+
+/**
+ * Toggle playback and keep transport UI in sync with engine state.
+ */
+async function handlePlayPauseClick(stopBtn) {
+    if (!audioEngine) return;
+
+    try {
+        const { isPlaying } = audioEngine.getState();
+
+        if (isPlaying) {
+            audioEngine.pause();
+            uiController.updatePlayButtonIcon(false);
+            return;
+        }
+
+        await audioEngine.play();
+        uiController.updatePlayButtonIcon(true);
+        stopBtn.disabled = false;
+    } catch (error) {
+        console.error('Play/Pause failed:', error);
+        NotificationManager.error('Failed to play audio: ' + error.message);
+    }
 }
 
 /**
@@ -163,13 +157,11 @@ function setupStemControls() {
             uiController.updateStemButtons(stemId, { mute: isMuted, solo: isMuted ? false : undefined });
         } else if (soloBtn) {
             const stemId = soloBtn.dataset.stemId;
-            const exclusive = !e.shiftKey; // Exclusive solo unless Shift is pressed
+            const exclusive = !e.shiftKey;
             const isSoloed = audioEngine.toggleSolo(stemId, exclusive);
 
-            // Update button states
             uiController.updateStemButtons(stemId, { solo: isSoloed, mute: isSoloed ? false : undefined });
 
-            // If exclusive solo, clear all other solo buttons
             if (exclusive && isSoloed) {
                 uiController.clearAllSoloButtons(stemId);
             }
@@ -194,7 +186,6 @@ function setupStemControls() {
  * Setup waveform interactions
  */
 function setupWaveformInteractions() {
-    // Waveform hover tooltip
     setupWaveformTooltip();
 }
 
@@ -202,7 +193,6 @@ function setupWaveformInteractions() {
  * Setup keyboard controls
  */
 function setupKeyboardControls() {
-    // Keyboard shortcuts
     keyboardController.enable();
 }
 
@@ -224,21 +214,17 @@ function setupAudioEventListeners() {
 
     audioEngine.on('ended', () => {
         console.log('Playback ended');
-        // Reset UI to stopped state
-        uiController.updatePlayButtonIcon(false); // Show play icon
+        uiController.updatePlayButtonIcon(false);
         document.getElementById('stop-btn').disabled = true;
     });
 
     audioEngine.on('statechange', (state) => {
         uiController.updatePlayheadVisibility(state);
-
-        // Re-render waveform for visual state changes (e.g., mute/solo dimming).
         if (waveformRenderer) {
             waveformRenderer.render();
         }
     });
 
-    // Handle decode start/end for visual feedback
     audioEngine.on('decodestart', () => {
         const playBtn = document.getElementById('play-btn');
         const canvas = document.getElementById('waveform-canvas');
@@ -255,8 +241,6 @@ function setupAudioEventListeners() {
 
         playBtn?.classList.remove('decoding');
         wrapper?.classList.remove('decoding');
-
-        // Redraw waveform with real audio data
         if (waveformRenderer) {
             waveformRenderer.render();
         }
@@ -273,104 +257,119 @@ function setupWaveformTooltip() {
 
     if (!canvas || !tooltip || !hoverLine) return;
 
-    const TOOLTIP_OFFSET_Y = -60; // Position above cursor
-
-    // Show tooltip and hover line on mouse enter
     canvas.addEventListener('mouseenter', () => {
         tooltip.classList.add('visible');
         hoverLine.classList.add('visible');
     });
 
-    // Hide tooltip and hover line on mouse leave
     canvas.addEventListener('mouseleave', () => {
         tooltip.classList.remove('visible');
         hoverLine.classList.remove('visible');
     });
 
-    // Update tooltip position and content on mouse move
     canvas.addEventListener('mousemove', (e) => {
         if (!manifest) return;
 
         const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const { mouseX, mouseY } = getCanvasMousePosition(e, rect);
+        const time = getTimeFromCanvasX(mouseX, rect.width, manifest.song.duration);
 
-        // Calculate time from mouse X position
-        const percentage = mouseX / rect.width;
-        const time = percentage * manifest.song.duration;
-
-        // Calculate bar and beat from time
         const { bar, beat } = songMetrics.timeToBarBeat(time);
 
-        // Update tooltip content
-        tooltip.querySelector('.tooltip-time').textContent = formatTime(time);
-        tooltip.querySelector('.tooltip-bar').textContent = `Bar ${bar}.${beat}`;
-
-        // Position tooltip near cursor
-        let tooltipX = mouseX;
-        let tooltipY = mouseY + TOOLTIP_OFFSET_Y;
-
-        // Keep tooltip within canvas bounds
-        const tooltipRect = tooltip.getBoundingClientRect();
-        const tooltipWidth = tooltipRect.width;
-
-        // Horizontal bounds
-        if (tooltipX + tooltipWidth > rect.width) {
-            tooltipX = rect.width - tooltipWidth;
-        }
-        if (tooltipX < 0) {
-            tooltipX = 0;
-        }
-
-        // Vertical bounds - flip to below cursor if too close to top
-        if (tooltipY < 0) {
-            tooltipY = mouseY + 20; // Position below cursor instead
-        }
-
-        tooltip.style.left = `${tooltipX}px`;
-        tooltip.style.top = `${tooltipY}px`;
-
-        // Position hover line at mouse X
+        updateWaveformTooltipContent(tooltip, time, bar, beat);
+        positionTooltip(tooltip, rect, mouseX, mouseY, TOOLTIP_OFFSET_Y);
         hoverLine.style.left = `${mouseX}px`;
     });
 
-    // Click to seek
     canvas.addEventListener('click', async (e) => {
         if (!manifest || !audioEngine) return;
 
         const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-
-        // Calculate time from mouse X position
-        const percentage = (mouseX / rect.width) * 100;
-        const time = songMetrics.percentToTime(percentage);
-
-        // Seek to the clicked time
-        const wasPlaying = audioEngine.getState().isPlaying;
-        await audioEngine.seek(time);
-
-        // Start playing if not already playing
-        if (!wasPlaying) {
-            await audioEngine.play();
-            uiController.updatePlayButtonIcon(true);
-            document.getElementById('stop-btn').disabled = false;
-        }
+        const { mouseX } = getCanvasMousePosition(e, rect);
+        await seekFromCanvasClick(mouseX, rect.width);
     });
 }
 
 /**
- * Initialize audio engine and load audio files
+ * Convert a browser mouse event into canvas-local coordinates.
+ */
+function getCanvasMousePosition(event, canvasRect) {
+    return {
+        mouseX: event.clientX - canvasRect.left,
+        mouseY: event.clientY - canvasRect.top
+    };
+}
+
+/**
+ * Map horizontal canvas position to timeline seconds.
+ */
+function getTimeFromCanvasX(mouseX, canvasWidth, songDuration) {
+    return (mouseX / canvasWidth) * songDuration;
+}
+
+/**
+ * Update tooltip text for the current time position.
+ */
+function updateWaveformTooltipContent(tooltip, time, bar, beat) {
+    tooltip.querySelector('.tooltip-time').textContent = formatTime(time);
+    tooltip.querySelector('.tooltip-bar').textContent = `Bar ${bar}.${beat}`;
+}
+
+/**
+ * Keep tooltip visible inside the waveform area while following cursor intent.
+ */
+function positionTooltip(tooltip, canvasRect, mouseX, mouseY, offsetY) {
+    let tooltipX = mouseX;
+    let tooltipY = mouseY + offsetY;
+
+    const tooltipWidth = tooltip.getBoundingClientRect().width;
+
+    if (tooltipX + tooltipWidth > canvasRect.width) {
+        tooltipX = canvasRect.width - tooltipWidth;
+    }
+
+    if (tooltipX < 0) {
+        tooltipX = 0;
+    }
+
+    if (tooltipY < 0) {
+        tooltipY = mouseY + 20;
+    }
+
+    tooltip.style.left = `${tooltipX}px`;
+    tooltip.style.top = `${tooltipY}px`;
+}
+
+/**
+ * Seek to clicked canvas position and optionally resume playback.
+ */
+async function seekFromCanvasClick(mouseX, canvasWidth) {
+    const percentage = (mouseX / canvasWidth) * 100;
+    const time = songMetrics.percentToTime(percentage);
+    const wasPlaying = audioEngine.getState().isPlaying;
+
+    await audioEngine.seek(time);
+
+    if (!wasPlaying) {
+        await audioEngine.play();
+        uiController.updatePlayButtonIcon(true);
+        document.getElementById('stop-btn').disabled = false;
+    }
+}
+
+/**
+ * Create the AudioEngine, wire its events, then load all stems from the manifest.
+ * On success: syncs initial mute/solo/gain state to the UI, registers the engine
+ * with the waveform renderer, and enables the play button.
+ * On failure: shows an error notification but still re-enables play so the user can retry.
  */
 async function initializeAudio() {
     console.log('Initializing audio engine...');
 
-    // Create audio engine instance
     audioEngine = new AudioEngine();
 
-    // Set up audio event listeners
     setupAudioEventListeners();
 
-    // Load audio from manifest
     try {
         console.log('Loading audio from manifest...', manifest);
         await audioEngine.loadFromManifest(manifest);
@@ -378,7 +377,6 @@ async function initializeAudio() {
         console.log('Stems:', audioEngine.getStems());
         console.log('Duration:', audioEngine.getDuration());
 
-        // Sync initial stem mute/solo button states from audio engine
         audioEngine.getStems().forEach(stem => {
             uiController.updateStemButtons(stem.id, {
                 mute: stem.isMuted,
@@ -387,19 +385,16 @@ async function initializeAudio() {
             uiController.updateStemGain(stem.id, stem.volumeDb ?? 0.0);
         });
 
-        // Set audio engine reference in waveform renderer
         if (waveformRenderer) {
             waveformRenderer.setAudioEngine(audioEngine);
         }
 
-        // Enable play button
         document.getElementById('play-btn').disabled = false;
         console.log('Play button enabled');
     } catch (error) {
         console.error('Failed to load audio:', error);
         console.error('Error stack:', error.stack);
         NotificationManager.error('Failed to load audio files. Check console for details.');
-        // Re-enable play button even on error so user can try again
         document.getElementById('play-btn').disabled = false;
     }
 }

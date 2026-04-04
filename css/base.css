@@ -1,0 +1,19 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --stem-controls-width: 165px;
+    --sidebar-padding-x: 10px;
+    --sidebar-width: calc(var(--stem-controls-width) + (var(--sidebar-padding-x) * 2));
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    overflow: hidden;
+    height: 100vh;
+}
