@@ -123,3 +123,8 @@
     opacity: 0.4;
     pointer-events: none;
 }
+
+.waveform-canvas-wrapper.loading {
+    opacity: 0.4;
+    pointer-events: none;
+}

@@ -13,6 +13,9 @@ import { KeyboardController } from './keyboardController.js';
 import { NotificationManager } from './notifications.js';
 
 const TOOLTIP_OFFSET_Y = -60;
+const WAVEFORM_TEXT_LOADING = 'Loading audio files...';
+const WAVEFORM_TEXT_DECODING = 'Decoding audio...';
+const WAVEFORM_TEXT_READY_HINT = 'Click Play or click anywhere on the timeline to load waveforms';
 
 let manifest = null;
 let audioEngine = null;
@@ -204,6 +207,7 @@ function setupAudioEventListeners() {
 
     audioEngine.on('loadprogress', (data) => {
         console.log('Audio load progress:', data);
+        updateLoadingUiState('loading', getLoadProgressMessage(data));
     });
 
     audioEngine.on('timeupdate', (time) => {
@@ -226,25 +230,44 @@ function setupAudioEventListeners() {
     });
 
     audioEngine.on('decodestart', () => {
-        const playBtn = document.getElementById('play-btn');
-        const canvas = document.getElementById('waveform-canvas');
-        const wrapper = canvas?.parentElement;
-
-        playBtn?.classList.add('decoding');
-        wrapper?.classList.add('decoding');
+        updateLoadingUiState('decoding', WAVEFORM_TEXT_DECODING);
     });
 
     audioEngine.on('decodeend', () => {
-        const playBtn = document.getElementById('play-btn');
-        const canvas = document.getElementById('waveform-canvas');
-        const wrapper = canvas?.parentElement;
-
-        playBtn?.classList.remove('decoding');
-        wrapper?.classList.remove('decoding');
+        updateLoadingUiState('idle', WAVEFORM_TEXT_READY_HINT);
         if (waveformRenderer) {
             waveformRenderer.render();
         }
     });
+}
+
+function updateLoadingUiState(state, waveformText) {
+    const playBtn = document.getElementById('play-btn');
+    const wrapper = document.querySelector('.waveform-canvas-wrapper');
+
+    if (playBtn) {
+        playBtn.classList.toggle('loading', state === 'loading');
+        playBtn.classList.toggle('decoding', state === 'decoding');
+    }
+
+    if (wrapper) {
+        wrapper.classList.toggle('loading', state === 'loading');
+        wrapper.classList.toggle('decoding', state === 'decoding');
+    }
+
+    waveformRenderer?.setOverlayText(waveformText);
+}
+
+function getLoadProgressMessage(data) {
+    if (data?.type === 'mix') {
+        return 'Loading audio files...';
+    }
+
+    if (Number.isFinite(data?.loaded) && Number.isFinite(data?.total) && data.total > 0) {
+        return `Loading audio files... (${data.loaded}/${data.total})`;
+    }
+
+    return WAVEFORM_TEXT_LOADING;
 }
 
 /**
@@ -367,6 +390,7 @@ async function initializeAudio() {
     console.log('Initializing audio engine...');
 
     audioEngine = new AudioEngine();
+    updateLoadingUiState('loading', WAVEFORM_TEXT_LOADING);
 
     setupAudioEventListeners();
 
@@ -390,12 +414,14 @@ async function initializeAudio() {
         }
 
         document.getElementById('play-btn').disabled = false;
+        updateLoadingUiState('idle', WAVEFORM_TEXT_READY_HINT);
         console.log('Play button enabled');
     } catch (error) {
         console.error('Failed to load audio:', error);
         console.error('Error stack:', error.stack);
         NotificationManager.error('Failed to load audio files. Check console for details.');
         document.getElementById('play-btn').disabled = false;
+        updateLoadingUiState('idle', WAVEFORM_TEXT_READY_HINT);
     }
 }
 

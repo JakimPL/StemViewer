@@ -20,7 +20,11 @@
     transition: all 0.2s ease;
 }
 
+.control-btn.loading,
 .control-btn.decoding {
+    background-color: #f2c94c;
+    border-color: #f2c94c;
+    color: #1a1a1a;
     opacity: 0.4;
     cursor: wait;
     pointer-events: none;
@@ -46,6 +50,19 @@
     border-color: #4ecdc4;
 }
 
+#play-btn.loading,
+#play-btn.decoding {
+    background-color: #f2c94c;
+    border-color: #f2c94c;
+    color: #1a1a1a;
+}
+
 #play-btn:hover:not(:disabled) {
     background-color: #45b8b0;
+}
+
+#play-btn.loading:hover:not(:disabled),
+#play-btn.decoding:hover:not(:disabled) {
+    background-color: #e4bc46;
+    border-color: #e4bc46;
 }

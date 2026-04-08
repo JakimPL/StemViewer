@@ -14,6 +14,7 @@ const WAVEFORM_HEIGHT_SCALE = 0.5;
 const WAVEFORM_TEXT_COLOR = '#666';
 const WAVEFORM_TEXT_FONT = '14px Arial';
 const WAVEFORM_RMS_SCALE = 3.5;
+const WAVEFORM_DEFAULT_OVERLAY_TEXT = 'Click Play or click anywhere on the timeline to load waveforms';
 
 const GRID_RULER_MIN_SPACING_PX = 80;
 const GRID_DENSITY_MULTIPLIER = 4;
@@ -46,6 +47,7 @@ export class WaveformRenderer {
         this.canvasOffsetX = CANVAS_HORIZONTAL_OFFSET_PX;
         this.audioEngine = null;
         this.ctx = canvasElement ? canvasElement.getContext('2d') : null;
+        this.overlayText = WAVEFORM_DEFAULT_OVERLAY_TEXT;
     }
 
     /**
@@ -54,6 +56,15 @@ export class WaveformRenderer {
      */
     setAudioEngine(audioEngine) {
         this.audioEngine = audioEngine;
+    }
+
+    /**
+     * Set overlay text shown while waveform uses placeholder bars.
+     * @param {string} text - Overlay status/instruction text
+     */
+    setOverlayText(text) {
+        this.overlayText = text || WAVEFORM_DEFAULT_OVERLAY_TEXT;
+        this.render();
     }
 
     /**
@@ -144,7 +155,7 @@ export class WaveformRenderer {
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
             this.ctx.fillText(
-                'Click Play or click anywhere on the timeline to load waveforms',
+                this.overlayText,
                 this.canvas.width / 2 + this.canvasOffsetX,
                 this.canvas.height / 2
             );
