@@ -95,7 +95,7 @@ function initializeUI() {
         uiController.adjustStemHeights();
         uiController.renderTimeRuler();
         if (waveformRenderer) {
-            waveformRenderer.render();
+            waveformRenderer.resize();
         }
     });
 

@@ -51,6 +51,8 @@ export class WaveformRenderer {
         this.viewport = viewport;
         this.audioEngine = null;
         this.envelopes = new Map();
+        this.width = 0;
+        this.height = 0;
         this.ctx = canvasElement ? canvasElement.getContext('2d') : null;
         this.overlayText = WAVEFORM_DEFAULT_OVERLAY_TEXT;
     }
@@ -88,17 +90,22 @@ export class WaveformRenderer {
     }
 
     /**
-     * Initialize canvas dimensions and render
+     * Match the canvas to its wrapper and render. Drawing uses CSS pixels (this.width/height),
+     * the same units as the DOM layers, while the backing store uses device pixels for sharp lines.
      */
     resize() {
         if (!this.canvas) return;
 
         const canvasWrapper = this.canvas.parentElement;
         const rect = canvasWrapper.getBoundingClientRect();
+        const pixelRatio = window.devicePixelRatio || 1;
 
         // Wrapper already excludes sidebar width.
-        this.canvas.width = rect.width;
-        this.canvas.height = rect.height;
+        this.width = rect.width;
+        this.height = rect.height;
+        this.canvas.width = Math.round(rect.width * pixelRatio);
+        this.canvas.height = Math.round(rect.height * pixelRatio);
+        this.ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
 
         this.render();
     }
@@ -110,7 +117,7 @@ export class WaveformRenderer {
         if (!this.canvas || !this.ctx || !this.manifest) return;
 
         this.ctx.fillStyle = WAVEFORM_BACKGROUND_COLOR;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillRect(0, 0, this.width, this.height);
 
         const useRealData = Boolean(this.audioEngine?.isAudioReady) && this.envelopes.size > 0;
 
@@ -131,7 +138,7 @@ export class WaveformRenderer {
      */
     getTimeAtPosition(x) {
         if (!this.canvas) return 0;
-        return this.viewport.pixelToTime(x, this.canvas.width);
+        return this.viewport.pixelToTime(x, this.width);
     }
 
     /**
@@ -141,7 +148,7 @@ export class WaveformRenderer {
      * @private
      */
     _drawColumns(useRealData) {
-        const width = this.canvas.width;
+        const width = this.width;
         const columnCount = width / WAVEFORM_COLUMN_WIDTH_PX;
         if (columnCount <= 0 || this.viewport.visibleDuration <= 0) return;
 
@@ -197,7 +204,7 @@ export class WaveformRenderer {
         this.ctx.font = WAVEFORM_TEXT_FONT;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(this.overlayText, this.canvas.width / 2, this.canvas.height / 2);
+        this.ctx.fillText(this.overlayText, this.width / 2, this.height / 2);
     }
 
     /**
@@ -210,7 +217,7 @@ export class WaveformRenderer {
         this.manifest.sections.forEach(section => {
             if (!this.viewport.isVisible(section.startTime)) return;
 
-            const x = this.viewport.timeToPixel(section.startTime, this.canvas.width);
+            const x = this.viewport.timeToPixel(section.startTime, this.width);
             this._drawVerticalLine(x, SECTION_DIVIDER_UNDERLAY_COLOR, SECTION_DIVIDER_UNDERLAY_WIDTH);
             this._drawVerticalLine(x, SECTION_DIVIDER_COLOR, SECTION_DIVIDER_WIDTH);
         });
@@ -222,7 +229,7 @@ export class WaveformRenderer {
      * @private
      */
     _drawBarGrid() {
-        const width = this.canvas.width;
+        const width = this.width;
         const { startTime, endTime, visibleDuration } = this.viewport;
         const rulerInterval = this.songMetrics.calculateBeatInterval(visibleDuration, width, GRID_RULER_MIN_SPACING_PX);
         const { markers } = this.songMetrics.generateBeatMarkers(startTime, endTime, width, GRID_MIN_SPACING_PX);
@@ -241,7 +248,7 @@ export class WaveformRenderer {
     _drawVerticalLine(x, color, lineWidth) {
         this.ctx.beginPath();
         this.ctx.moveTo(x, 0);
-        this.ctx.lineTo(x, this.canvas.height);
+        this.ctx.lineTo(x, this.height);
         this.ctx.strokeStyle = color;
         this.ctx.lineWidth = lineWidth;
         this.ctx.stroke();

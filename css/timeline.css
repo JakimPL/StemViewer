@@ -22,10 +22,12 @@
 }
 
 .section-marker {
+    --divider-width: 3px;
     position: absolute;
     height: 100%;
-    border-left: 3px solid #7b8f9a;
-    padding: 8px 12px;
+    margin-left: calc(var(--divider-width) / -2);
+    border-left: var(--divider-width) solid #7b8f9a;
+    padding: 8px 12px 8px 5px;
     display: flex;
     align-items: center;
     cursor: pointer;
@@ -33,14 +35,14 @@
 }
 
 .section-marker.active {
+    --divider-width: 4px;
     border-left-color: #86a9bf;
-    border-left-width: 4px;
 }
 
 .section-marker:hover,
 .section-marker.active:hover {
+    --divider-width: 3px;
     border-left-color: #4ecdc4;
-    border-left-width: 3px;
 }
 
 .section-marker.continues-left,
@@ -102,9 +104,11 @@
 }
 
 .time-marker {
+    --tick-width: 1px;
     position: absolute;
     height: 100%;
-    border-left: 1px solid #444;
+    margin-left: calc(var(--tick-width) / -2);
+    border-left: var(--tick-width) solid #444;
     display: flex;
     align-items: flex-end;
     padding: 4px 6px;
@@ -116,8 +120,8 @@
 }
 
 .bar-marker {
+    --tick-width: 2px;
     border-left-color: #666;
-    border-left-width: 2px;
 }
 
 .bar-marker .time-label {
