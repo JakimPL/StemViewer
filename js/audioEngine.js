@@ -4,6 +4,7 @@
  */
 
 import { fetchArrayBufferWithCache } from './cacheManager.js';
+import { resolveAudioPath } from './dataLoader.js';
 
 const STEM_GAIN_DEFAULT_DB = 0.0;
 const STEM_GAIN_MIN_DB = -24.0;
@@ -144,7 +145,7 @@ export class AudioEngine {
 
                 const stemPromise = this.loadStem(
                     stem.id,
-                    stem.file,
+                    resolveAudioPath(stem.file),
                     {
                         name: stem.name,
                         color: stem.color,
@@ -159,7 +160,7 @@ export class AudioEngine {
         }
 
         if (manifest.files && manifest.files.mix) {
-            promises.push(this.loadMix(manifest.files.mix));
+            promises.push(this.loadMix(resolveAudioPath(manifest.files.mix)));
         }
 
         await Promise.all(promises);
