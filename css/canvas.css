@@ -25,6 +25,10 @@
     opacity: 1;
 }
 
+.playhead.out-of-view {
+    display: none;
+}
+
 .hover-line {
     position: absolute;
     top: 0;

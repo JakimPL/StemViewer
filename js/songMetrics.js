@@ -102,29 +102,6 @@ export class SongMetrics {
     }
 
     // ========================================================================
-    // TIME ↔ POSITION CONVERSIONS (percent-based)
-    // ========================================================================
-
-    /**
-     * Convert time in seconds to position percentage (0-100)
-     * @param {number} timeInSeconds - Time in seconds
-     * @returns {number} Position percentage (0-100)
-     */
-    timeToPercent(timeInSeconds) {
-        if (this._duration === 0) return 0;
-        return (timeInSeconds / this._duration) * 100;
-    }
-
-    /**
-     * Convert position percentage to time in seconds
-     * @param {number} percent - Position percentage (0-100)
-     * @returns {number} Time in seconds
-     */
-    percentToTime(percent) {
-        return (percent / 100) * this._duration;
-    }
-
-    // ========================================================================
     // TIME ↔ BAR CONVERSIONS
     // ========================================================================
 
@@ -203,68 +180,9 @@ export class SongMetrics {
         return this.getCurrentSection(timeInSeconds);
     }
 
-    /**
-     * Get all sections with calculated position percentages
-     * @returns {Array} Sections with added leftPercent and widthPercent properties
-     */
-    getSectionsWithPositions() {
-        const sections = this.manifest.sections;
-        if (!sections || sections.length === 0) return [];
-
-        return sections.map(section => ({
-            ...section,
-            leftPercent: this.timeToPercent(section.startTime),
-            widthPercent: this.timeToPercent(section.endTime - section.startTime)
-        }));
-    }
-
     // ========================================================================
-    // BEAT/BAR INTERVAL CALCULATIONS
+    // BEAT/BAR MARKERS
     // ========================================================================
-
-    /**
-     * Calculate appropriate bar interval for visual markers
-     * Given a width in pixels, determine a power-of-2 interval that
-     * provides good spacing between bar markers
-     * @param {number} containerWidth - Width of container in pixels
-     * @param {number} minSpacing - Minimum spacing between markers in pixels (default 80)
-     * @returns {number} Bar interval (power of 2: 1, 2, 4, 8, 16...)
-     */
-    calculateBarInterval(containerWidth, minSpacing = 80) {
-        const maxMarkers = Math.floor(containerWidth / minSpacing);
-
-        // Find smallest power of 2 that gives us maxMarkers or fewer
-        let barInterval = 1;
-        while (this._totalBars / barInterval > maxMarkers && barInterval < this._totalBars) {
-            barInterval *= 2;
-        }
-
-        return barInterval;
-    }
-
-    /**
-     * Generate bar marker positions for rendering
-     * @param {number} containerWidth - Width of container in pixels
-     * @param {number} minSpacing - Minimum spacing between markers in pixels
-     * @returns {Array} Array of { barNumber, timeInSeconds, positionPercent }
-     */
-    generateBarMarkers(containerWidth, minSpacing = 80) {
-        const barInterval = this.calculateBarInterval(containerWidth, minSpacing);
-        const markers = [];
-
-        for (let bar = 0; bar <= this._totalBars; bar += barInterval) {
-            const timeInSeconds = bar * this._secondsPerBar;
-            if (timeInSeconds > this._duration) break;
-
-            markers.push({
-                barNumber: bar + 1, // 1-indexed for display
-                timeInSeconds,
-                positionPercent: this.timeToPercent(timeInSeconds)
-            });
-        }
-
-        return markers;
-    }
 
     /**
      * Pick the marker interval in beats for a visible time span.

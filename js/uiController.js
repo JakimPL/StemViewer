@@ -19,11 +19,13 @@ export class UIController {
     /**
      * @param {Object} manifest - Song manifest data
      * @param {SongMetrics} songMetrics - Song metrics helper
+     * @param {TimelineViewport} viewport - Visible timeline window
      * @param {Function} getAudioEngine - Getter returning the current AudioEngine instance
      */
-    constructor(manifest, songMetrics, getAudioEngine) {
+    constructor(manifest, songMetrics, viewport, getAudioEngine) {
         this.manifest = manifest;
         this.songMetrics = songMetrics;
+        this.viewport = viewport;
         this.getAudioEngine = getAudioEngine;
     }
 
@@ -38,7 +40,7 @@ export class UIController {
         this.initializeHeader();
         this.initializeStems();
         this.initializeSections();
-        this.initializeTimeRuler();
+        this.renderTimeRuler();
         this.initializeMetadata();
         this.updateTimeDisplay(0);
     }
@@ -107,44 +109,80 @@ export class UIController {
     }
 
     /**
-     * Update section markers from manifest
+     * Create section markers from manifest and place them in the visible window
      */
     initializeSections() {
         const sectionsContainer = document.querySelector('.section-markers');
         sectionsContainer.innerHTML = '';
 
-        const sectionsWithPos = this.songMetrics.getSectionsWithPositions();
+        this.manifest.sections.forEach((section, index) => {
+            sectionsContainer.appendChild(this._createSectionMarker(section, index));
+        });
 
-        sectionsWithPos.forEach(section => {
-            const marker = this._createSectionMarker(section);
-            sectionsContainer.appendChild(marker);
+        this.positionSectionMarkers();
+    }
+
+    /**
+     * Place section markers over the visible part of their sections. A section that starts
+     * before the window is marked with `continues-left`, so its label stays at the left edge.
+     */
+    positionSectionMarkers() {
+        document.querySelectorAll('.section-marker').forEach(marker => {
+            const section = this.manifest.sections[Number(marker.dataset.sectionIndex)];
+            const visibleRange = this.viewport.clipRange(section.startTime, section.endTime);
+
+            marker.classList.toggle('out-of-view', !visibleRange);
+            if (!visibleRange) return;
+
+            const leftRatio = this.viewport.timeToRatio(visibleRange.start);
+            const rightRatio = this.viewport.timeToRatio(visibleRange.end);
+            marker.style.left = `${leftRatio * 100}%`;
+            marker.style.width = `${(rightRatio - leftRatio) * 100}%`;
+            marker.classList.toggle('continues-left', section.startTime < visibleRange.start);
         });
     }
 
     /**
-     * Update time ruler with bar and time markers
+     * Rebuild the time ruler for the visible window. Markers fall on bars, or on beats
+     * when zoomed in far enough.
      */
-    initializeTimeRuler() {
+    renderTimeRuler() {
         const rulerContainer = document.getElementById('time-ruler');
         if (!rulerContainer) return;
 
         rulerContainer.innerHTML = '';
 
         const rulerWidth = rulerContainer.offsetWidth || TIME_RULER_FALLBACK_WIDTH_PX;
-        const markers = this.songMetrics.generateBarMarkers(rulerWidth, TIME_RULER_MIN_MARKER_SPACING_PX);
+        const { markers } = this.songMetrics.generateBeatMarkers(
+            this.viewport.startTime,
+            this.viewport.endTime,
+            rulerWidth,
+            TIME_RULER_MIN_MARKER_SPACING_PX
+        );
 
-        markers.forEach(({ barNumber, positionPercent }) => {
+        markers.forEach(({ timeInSeconds, bar, beat }) => {
+            const isBarStart = beat === 1;
             const marker = document.createElement('div');
-            marker.className = 'time-marker bar-marker';
-            marker.style.left = `${positionPercent}%`;
+            marker.className = `time-marker ${isBarStart ? 'bar-marker' : 'beat-marker'}`;
+            marker.style.left = `${this.viewport.timeToRatio(timeInSeconds) * 100}%`;
 
             const label = document.createElement('span');
             label.className = 'time-label';
-            label.textContent = `Bar ${barNumber}`;
+            label.textContent = isBarStart ? `Bar ${bar}` : `Bar ${bar}.${beat}`;
 
             marker.appendChild(label);
             rulerContainer.appendChild(marker);
         });
+    }
+
+    /**
+     * Re-place every timeline layer after the visible window changed.
+     * @param {number} currentTime - Current playback time in seconds
+     */
+    renderViewport(currentTime) {
+        this.positionSectionMarkers();
+        this.renderTimeRuler();
+        this.updatePlayhead(currentTime);
     }
 
     /**
@@ -201,8 +239,9 @@ export class UIController {
         const playhead = document.getElementById('playhead');
         if (!playhead) return;
 
-        const positionPercent = this.songMetrics.timeToPercent(currentTime);
-        playhead.style.left = `${positionPercent}%`;
+        const ratio = this.viewport.timeToRatio(currentTime);
+        playhead.classList.toggle('out-of-view', ratio < 0 || ratio > 1);
+        playhead.style.left = `${ratio * 100}%`;
     }
 
     /**
@@ -226,14 +265,10 @@ export class UIController {
      */
     updateActiveSection(currentTime = 0) {
         const currentSection = this.songMetrics.getCurrentSection(currentTime);
+        const currentIndex = this.manifest.sections.indexOf(currentSection);
 
         document.querySelectorAll('.section-marker').forEach(marker => {
-            const sectionName = marker.dataset.sectionName;
-            if (currentSection && sectionName === currentSection.name) {
-                marker.classList.add('active');
-            } else {
-                marker.classList.remove('active');
-            }
+            marker.classList.toggle('active', Number(marker.dataset.sectionIndex) === currentIndex);
         });
     }
 
@@ -391,14 +426,14 @@ export class UIController {
 
     /**
      * Create a section marker element
-     * @param {Object} section - Section data with position percentages
+     * @param {Object} section - Section data
+     * @param {number} index - Section index in the manifest
      * @returns {HTMLElement} Section marker element
      */
-    _createSectionMarker(section) {
+    _createSectionMarker(section, index) {
         const div = document.createElement('div');
         div.className = 'section-marker';
-        div.style.left = `${section.leftPercent}%`;
-        div.style.width = `${section.widthPercent}%`;
+        div.dataset.sectionIndex = index;
         div.dataset.sectionName = section.name;
         div.dataset.startTime = section.startTime;
 

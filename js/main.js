@@ -25,6 +25,13 @@ let songMetrics = null;
 let timelineViewport = null;
 let uiController = null;
 let keyboardController = null;
+let viewportFrameRequest = null;
+
+const pointer = {
+    clientX: 0,
+    clientY: 0,
+    isOverCanvas: false
+};
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -34,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         songMetrics = new SongMetrics(manifest);
         timelineViewport = new TimelineViewport(songMetrics.duration, songMetrics.secondsPerBar);
 
-        uiController = new UIController(manifest, songMetrics, () => audioEngine);
+        uiController = new UIController(manifest, songMetrics, timelineViewport, () => audioEngine);
 
         keyboardController = new KeyboardController(
             () => audioEngine,
@@ -67,6 +74,7 @@ function initializeUI() {
 
     requestAnimationFrame(() => {
         uiController.adjustStemHeights();
+        uiController.renderTimeRuler();
         if (waveformRenderer) {
             waveformRenderer.render();
         }
@@ -80,6 +88,7 @@ function initializeUI() {
  * Setup UI event listeners
  */
 function setupUIEventListeners() {
+    setupViewportUpdates();
     setupWindowResizeListener();
     setupTransportControls();
     setupStemControls();
@@ -95,9 +104,31 @@ function setupWindowResizeListener() {
         uiController.adjustStemHeights();
         if (waveformRenderer) {
             waveformRenderer.resize();
-            waveformRenderer.render();
         }
+        uiController.renderTimeRuler();
     });
+}
+
+/**
+ * Redraw every timeline layer once per animation frame after the visible window changes.
+ */
+function setupViewportUpdates() {
+    timelineViewport.onChange(() => {
+        if (viewportFrameRequest !== null) return;
+        viewportFrameRequest = requestAnimationFrame(applyViewport);
+    });
+}
+
+function applyViewport() {
+    viewportFrameRequest = null;
+
+    waveformRenderer?.render();
+    uiController.renderViewport(getCurrentTime());
+    refreshWaveformHover();
+}
+
+function getCurrentTime() {
+    return audioEngine ? audioEngine.getCurrentTime() : 0;
 }
 
 /**
@@ -285,27 +316,21 @@ function setupWaveformTooltip() {
     if (!canvas || !tooltip || !hoverLine) return;
 
     canvas.addEventListener('mouseenter', () => {
+        pointer.isOverCanvas = true;
         tooltip.classList.add('visible');
         hoverLine.classList.add('visible');
     });
 
     canvas.addEventListener('mouseleave', () => {
+        pointer.isOverCanvas = false;
         tooltip.classList.remove('visible');
         hoverLine.classList.remove('visible');
     });
 
     canvas.addEventListener('mousemove', (e) => {
-        if (!manifest) return;
-
-        const rect = canvas.getBoundingClientRect();
-        const { mouseX, mouseY } = getCanvasMousePosition(e, rect);
-        const time = getTimeFromCanvasX(mouseX, rect.width, manifest.song.duration);
-
-        const { bar, beat } = songMetrics.timeToBarBeat(time);
-
-        updateWaveformTooltipContent(tooltip, time, bar, beat);
-        positionTooltip(tooltip, rect, mouseX, mouseY, TOOLTIP_OFFSET_Y);
-        hoverLine.style.left = `${mouseX}px`;
+        pointer.clientX = e.clientX;
+        pointer.clientY = e.clientY;
+        refreshWaveformHover();
     });
 
     canvas.addEventListener('click', async (e) => {
@@ -318,20 +343,34 @@ function setupWaveformTooltip() {
 }
 
 /**
- * Convert a browser mouse event into canvas-local coordinates.
+ * Update the hover line and tooltip for the last pointer position, so they follow
+ * both mouse movement and timeline zoom/scroll.
  */
-function getCanvasMousePosition(event, canvasRect) {
-    return {
-        mouseX: event.clientX - canvasRect.left,
-        mouseY: event.clientY - canvasRect.top
-    };
+function refreshWaveformHover() {
+    if (!manifest || !pointer.isOverCanvas) return;
+
+    const canvas = document.getElementById('waveform-canvas');
+    const tooltip = document.getElementById('waveform-tooltip');
+    const hoverLine = document.getElementById('hover-line');
+
+    const rect = canvas.getBoundingClientRect();
+    const { mouseX, mouseY } = getCanvasMousePosition(pointer, rect);
+    const time = timelineViewport.pixelToTime(mouseX, rect.width);
+    const { bar, beat } = songMetrics.timeToBarBeat(time);
+
+    updateWaveformTooltipContent(tooltip, time, bar, beat);
+    positionTooltip(tooltip, rect, mouseX, mouseY, TOOLTIP_OFFSET_Y);
+    hoverLine.style.left = `${mouseX}px`;
 }
 
 /**
- * Map horizontal canvas position to timeline seconds.
+ * Convert client coordinates (a mouse event or the stored pointer) into canvas-local coordinates.
  */
-function getTimeFromCanvasX(mouseX, canvasWidth, songDuration) {
-    return (mouseX / canvasWidth) * songDuration;
+function getCanvasMousePosition(clientPosition, canvasRect) {
+    return {
+        mouseX: clientPosition.clientX - canvasRect.left,
+        mouseY: clientPosition.clientY - canvasRect.top
+    };
 }
 
 /**
@@ -371,8 +410,7 @@ function positionTooltip(tooltip, canvasRect, mouseX, mouseY, offsetY) {
  * Seek to clicked canvas position and optionally resume playback.
  */
 async function seekFromCanvasClick(mouseX, canvasWidth) {
-    const percentage = (mouseX / canvasWidth) * 100;
-    const time = songMetrics.percentToTime(percentage);
+    const time = timelineViewport.pixelToTime(mouseX, canvasWidth);
     const wasPlaying = audioEngine.getState().isPlaying;
 
     await audioEngine.seek(time);

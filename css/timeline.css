@@ -18,6 +18,7 @@
     position: relative;
     flex: 1;
     display: flex;
+    overflow: hidden;
 }
 
 .section-marker {
@@ -28,7 +29,7 @@
     display: flex;
     align-items: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: border-color 0.2s ease;
 }
 
 .section-marker.active {
@@ -42,6 +43,15 @@
     border-left-width: 3px;
 }
 
+.section-marker.continues-left,
+.section-marker.continues-left:hover {
+    border-left-color: transparent;
+}
+
+.section-marker.out-of-view {
+    display: none;
+}
+
 .section-label {
     font-size: 0.8rem;
     font-weight: 500;
@@ -51,7 +61,7 @@
     border-radius: 4px;
     border: 1px solid #444;
     white-space: nowrap;
-    transition: all 0.2s ease;
+    transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .section-marker.active .section-label {
@@ -88,6 +98,7 @@
     position: relative;
     flex: 1;
     display: flex;
+    overflow: hidden;
 }
 
 .time-marker {
@@ -111,5 +122,13 @@
 
 .bar-marker .time-label {
     font-weight: 600;
+    color: #666;
+}
+
+.beat-marker {
+    border-left-color: #3a3a3a;
+}
+
+.beat-marker .time-label {
     color: #666;
 }
