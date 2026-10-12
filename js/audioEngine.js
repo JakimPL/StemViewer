@@ -399,9 +399,18 @@ export class AudioEngine {
     }
 
     /**
-     * Stop playback and reset to beginning
+     * Stop playback on user request and reset to beginning
      */
     stop() {
+        this._resetToStart();
+        this._emit('stop');
+    }
+
+    /**
+     * Stop all sources and rewind playback state to the beginning
+     * @private
+     */
+    _resetToStart() {
         this._stopAllSources();
 
         this.pausedAt = 0;
@@ -421,6 +430,7 @@ export class AudioEngine {
         const wasPlaying = this.state.isPlaying;
 
         time = Math.max(0, Math.min(time, this.state.duration));
+        this._emit('seek', time);
 
         if (wasPlaying) {
             this.state.isPlaying = false;
@@ -676,7 +686,7 @@ export class AudioEngine {
      */
     _handlePlaybackEnded() {
         if (!this.state.isPlaying) return;
-        this.stop();
+        this._resetToStart();
         this._emit('ended');
     }
 

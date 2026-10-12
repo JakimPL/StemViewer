@@ -10,6 +10,7 @@ import { WaveformRenderer } from './waveformRenderer.js';
 import { SongMetrics } from './songMetrics.js';
 import { TimelineViewport } from './timelineViewport.js';
 import { TimelineInput } from './timelineInput.js';
+import { PlayheadFollower } from './playheadFollower.js';
 import { UIController } from './uiController.js';
 import { KeyboardController } from './keyboardController.js';
 import { NotificationManager } from './notifications.js';
@@ -27,6 +28,7 @@ let timelineViewport = null;
 let uiController = null;
 let keyboardController = null;
 let timelineInput = null;
+let playheadFollower = null;
 let viewportFrameRequest = null;
 
 const pointer = {
@@ -234,6 +236,12 @@ function setupWaveformInteractions() {
         timelineViewport
     );
     timelineInput.enable();
+
+    playheadFollower = new PlayheadFollower(
+        timelineViewport,
+        () => timelineInput.lastInputTime,
+        () => performance.now()
+    );
 }
 
 /**
@@ -254,7 +262,16 @@ function setupAudioEventListeners() {
         updateLoadingUiState('loading', getLoadProgressMessage(data));
     });
 
+    audioEngine.on('seek', (time) => {
+        playheadFollower.onSeek(time);
+    });
+
+    audioEngine.on('stop', () => {
+        playheadFollower.onStop();
+    });
+
     audioEngine.on('timeupdate', (time) => {
+        playheadFollower.onTimeUpdate(time);
         uiController.updateTimeDisplay(time);
         uiController.updatePlayhead(time);
         uiController.updateActiveSection(time);
