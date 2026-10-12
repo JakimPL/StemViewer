@@ -4,6 +4,7 @@
  */
 
 import { formatTime } from './utils.js';
+import { resolveAudioPath } from './dataLoader.js';
 
 const STEM_ITEM_MIN_HEIGHT_PX = 60;
 const STEM_ITEM_MAX_HEIGHT_PX = 180;
@@ -355,6 +356,17 @@ export class UIController {
             <div class="stem-control-header">
                 <div class="stem-color" style="background-color: ${stem.color};"></div>
                 <span class="stem-name" title="${stem.name}">${stem.name}</span>
+                <a
+                    class="stem-download"
+                    href="${resolveAudioPath(stem.file)}"
+                    download="${stem.file.split('/').pop()}"
+                    title="Download ${stem.name}"
+                    aria-label="Download ${stem.name}"
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M11 3h2v10.17l3.59-3.58L18 11l-6 6-6-6 1.41-1.41L11 13.17V3zM5 19h14v2H5v-2z" />
+                    </svg>
+                </a>
             </div>
             <div class="stem-controls">
                 <button class="stem-btn solo-btn" data-stem-id="${stem.id}" title="Solo">S</button>
