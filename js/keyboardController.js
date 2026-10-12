@@ -3,6 +3,8 @@
  * Keyboard shortcut handling and action dispatching
  */
 
+const KEYBOARD_ZOOM_FACTOR = 1.5;
+
 /**
  * Keyboard controller for shortcut handling and action dispatching
  */
@@ -10,12 +12,14 @@ export class KeyboardController {
     /**
      * @param {Function} getAudioEngine - Getter returning the current AudioEngine instance
      * @param {UIController} uiController - UI controller instance
+     * @param {TimelineViewport} viewport - Visible timeline window
      * @param {Object} manifest - Song manifest data
      * @param {Function} showNotification - Notification display function
      */
-    constructor(getAudioEngine, uiController, manifest, showNotification) {
+    constructor(getAudioEngine, uiController, viewport, manifest, showNotification) {
         this.getAudioEngine = getAudioEngine;
         this.uiController = uiController;
+        this.viewport = viewport;
         this.manifest = manifest;
         this.showNotification = showNotification;
         this.isEnabled = false;
@@ -33,7 +37,10 @@ export class KeyboardController {
             unmuteAll: () => this.unmuteAll(),
             nextSection: () => this.nextSection(),
             previousSection: () => this.previousSection(),
-            jumpToStart: () => this.jumpToStart()
+            jumpToStart: () => this.jumpToStart(),
+            zoomIn: () => this.zoom(KEYBOARD_ZOOM_FACTOR),
+            zoomOut: () => this.zoom(1 / KEYBOARD_ZOOM_FACTOR),
+            fitTimeline: () => this.viewport.fit()
         };
     }
 
@@ -191,8 +198,22 @@ export class KeyboardController {
         });
     }
 
+    /**
+     * Zoom around the playhead when it is visible, and around the window centre otherwise.
+     * @param {number} factor - Zoom factor (above 1 zooms in)
+     */
+    zoom(factor) {
+        const audioEngine = this.getAudioEngine();
+        const anchorTime = audioEngine ? audioEngine.getCurrentTime() : this.viewport.ratioToTime(0.5);
+        this.viewport.zoomAround(anchorTime, factor);
+    }
+
     handleKeyDown(e) {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            return;
+        }
+
+        if (e.ctrlKey || e.metaKey || e.altKey) {
             return;
         }
 
@@ -232,7 +253,11 @@ export class KeyboardController {
             'u': this.actions.unmuteAll,
             'U': this.actions.unmuteAll,
             'Tab': this.actions.nextSection,
-            'Home': this.actions.jumpToStart
+            'Home': this.actions.jumpToStart,
+            '=': this.actions.zoomIn,
+            '+': this.actions.zoomIn,
+            '-': this.actions.zoomOut,
+            '0': this.actions.fitTimeline
         };
     }
 

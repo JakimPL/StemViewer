@@ -55,6 +55,7 @@
     overflow-y: auto;
     overflow-x: hidden;
     overscroll-behavior: contain;
+    overscroll-behavior-x: none;
     scrollbar-gutter: stable;
 
     /* Firefox */

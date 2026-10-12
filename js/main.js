@@ -9,6 +9,7 @@ import { AudioEngine } from './audioEngine.js';
 import { WaveformRenderer } from './waveformRenderer.js';
 import { SongMetrics } from './songMetrics.js';
 import { TimelineViewport } from './timelineViewport.js';
+import { TimelineInput } from './timelineInput.js';
 import { UIController } from './uiController.js';
 import { KeyboardController } from './keyboardController.js';
 import { NotificationManager } from './notifications.js';
@@ -25,6 +26,7 @@ let songMetrics = null;
 let timelineViewport = null;
 let uiController = null;
 let keyboardController = null;
+let timelineInput = null;
 let viewportFrameRequest = null;
 
 const pointer = {
@@ -46,6 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         keyboardController = new KeyboardController(
             () => audioEngine,
             uiController,
+            timelineViewport,
             manifest,
             NotificationManager.show
         );
@@ -224,6 +227,13 @@ function setupStemControls() {
  */
 function setupWaveformInteractions() {
     setupWaveformTooltip();
+
+    timelineInput = new TimelineInput(
+        document.querySelector('.waveform-container'),
+        document.getElementById('waveform-canvas'),
+        timelineViewport
+    );
+    timelineInput.enable();
 }
 
 /**
