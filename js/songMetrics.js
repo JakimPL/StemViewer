@@ -3,6 +3,8 @@
  * Provides efficient, cached calculations for time/position/bar conversions
  */
 
+const BEAT_EPSILON = 1e-9;
+
 /**
  * SongMetrics class - wraps manifest data and provides conversion utilities
  */
@@ -262,5 +264,69 @@ export class SongMetrics {
         }
 
         return markers;
+    }
+
+    /**
+     * Pick the marker interval in beats for a visible time span.
+     * Candidates are 1 beat, half a bar (in even meters), then 1, 2, 4, 8... bars;
+     * the smallest one keeping markers at least minSpacing pixels apart wins.
+     * @param {number} visibleDuration - Visible span in seconds
+     * @param {number} width - Width of the span in pixels
+     * @param {number} minSpacing - Minimum spacing between markers in pixels
+     * @returns {number} Interval in beats
+     */
+    calculateBeatInterval(visibleDuration, width, minSpacing) {
+        if (visibleDuration <= 0 || width <= 0) return this._beatsPerBar;
+
+        const pixelsPerBeat = width / (visibleDuration / this._secondsPerBeat);
+        const totalBeats = this._totalBars * this._beatsPerBar;
+
+        for (const interval of this._beatIntervalCandidates()) {
+            if (interval * pixelsPerBeat >= minSpacing || interval >= totalBeats) {
+                return interval;
+            }
+        }
+
+        return totalBeats;
+    }
+
+    /**
+     * Generate beat-aligned markers covering a visible time span.
+     * @param {number} startTime - Visible span start in seconds
+     * @param {number} endTime - Visible span end in seconds
+     * @param {number} width - Width of the span in pixels
+     * @param {number} minSpacing - Minimum spacing between markers in pixels
+     * @returns {{intervalBeats: number, markers: Array<{beatIndex: number, timeInSeconds: number, bar: number, beat: number}>}}
+     *          Markers with 1-indexed bar and beat numbers
+     */
+    generateBeatMarkers(startTime, endTime, width, minSpacing) {
+        const intervalBeats = this.calculateBeatInterval(endTime - startTime, width, minSpacing);
+        const markers = [];
+
+        const firstBeat = Math.max(0, Math.ceil(startTime / this._secondsPerBeat / intervalBeats - BEAT_EPSILON)) * intervalBeats;
+        const lastTime = Math.min(endTime, this._duration);
+
+        for (let beatIndex = firstBeat; beatIndex * this._secondsPerBeat <= lastTime + BEAT_EPSILON; beatIndex += intervalBeats) {
+            markers.push({
+                beatIndex,
+                timeInSeconds: beatIndex * this._secondsPerBeat,
+                bar: Math.floor(beatIndex / this._beatsPerBar) + 1,
+                beat: (beatIndex % this._beatsPerBar) + 1
+            });
+        }
+
+        return { intervalBeats, markers };
+    }
+
+    *_beatIntervalCandidates() {
+        yield 1;
+
+        if (this._beatsPerBar > 2 && this._beatsPerBar % 2 === 0) {
+            yield this._beatsPerBar / 2;
+        }
+
+        for (let bars = 1; bars < this._totalBars; bars *= 2) {
+            yield bars * this._beatsPerBar;
+        }
     }
 }

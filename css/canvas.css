@@ -17,7 +17,7 @@
     pointer-events: none;
     z-index: 10;
     opacity: 0;
-    transform: translateX(2px);
+    transform: translateX(-1px);
     transition: opacity 0.2s ease;
 }
 
@@ -34,7 +34,6 @@
     pointer-events: none;
     z-index: 90;
     opacity: 0;
-    transform: translateX(2px);
     transition: opacity 0.15s ease;
 }
 

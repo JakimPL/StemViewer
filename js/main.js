@@ -8,6 +8,7 @@ import { formatTime } from './utils.js';
 import { AudioEngine } from './audioEngine.js';
 import { WaveformRenderer } from './waveformRenderer.js';
 import { SongMetrics } from './songMetrics.js';
+import { TimelineViewport } from './timelineViewport.js';
 import { UIController } from './uiController.js';
 import { KeyboardController } from './keyboardController.js';
 import { NotificationManager } from './notifications.js';
@@ -21,6 +22,7 @@ let manifest = null;
 let audioEngine = null;
 let waveformRenderer = null;
 let songMetrics = null;
+let timelineViewport = null;
 let uiController = null;
 let keyboardController = null;
 
@@ -30,6 +32,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log('Manifest loaded:', manifest);
 
         songMetrics = new SongMetrics(manifest);
+        timelineViewport = new TimelineViewport(songMetrics.duration, songMetrics.secondsPerBar);
 
         uiController = new UIController(manifest, songMetrics, () => audioEngine);
 
@@ -45,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setupUIEventListeners();
 
         const canvas = document.getElementById('waveform-canvas');
-        waveformRenderer = new WaveformRenderer(canvas, manifest, songMetrics);
+        waveformRenderer = new WaveformRenderer(canvas, manifest, songMetrics, timelineViewport);
         waveformRenderer.resize();
 
         await initializeAudio();
@@ -234,6 +237,7 @@ function setupAudioEventListeners() {
     });
 
     audioEngine.on('decodeend', () => {
+        waveformRenderer?.refreshEnvelopes();
         updateLoadingUiState('idle', WAVEFORM_TEXT_READY_HINT);
         if (waveformRenderer) {
             waveformRenderer.render();
