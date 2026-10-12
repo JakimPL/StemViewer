@@ -11,6 +11,8 @@ import { SongMetrics } from './songMetrics.js';
 import { TimelineViewport } from './timelineViewport.js';
 import { TimelineInput } from './timelineInput.js';
 import { PlayheadFollower } from './playheadFollower.js';
+import { GestureProgress } from './gestureProgress.js';
+import { ShortcutGuide } from './shortcutGuide.js';
 import { UIController } from './uiController.js';
 import { KeyboardController } from './keyboardController.js';
 import { NotificationManager } from './notifications.js';
@@ -29,6 +31,8 @@ let uiController = null;
 let keyboardController = null;
 let timelineInput = null;
 let playheadFollower = null;
+let gestureProgress = null;
+let shortcutGuide = null;
 let viewportFrameRequest = null;
 
 const pointer = {
@@ -47,10 +51,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         uiController = new UIController(manifest, songMetrics, timelineViewport, () => audioEngine);
 
+        gestureProgress = new GestureProgress(getBrowserStorage());
+        shortcutGuide = new ShortcutGuide(
+            document.querySelector('.ruler-hint'),
+            document.querySelector('.waveform-container'),
+            gestureProgress
+        );
+        shortcutGuide.update(timelineViewport);
+
         keyboardController = new KeyboardController(
             () => audioEngine,
             uiController,
             timelineViewport,
+            shortcutGuide,
+            gestureProgress,
             manifest,
             NotificationManager.show
         );
@@ -129,7 +143,21 @@ function applyViewport() {
 
     waveformRenderer?.render();
     uiController.renderViewport(getCurrentTime());
+    shortcutGuide.update(timelineViewport);
     refreshWaveformHover();
+}
+
+/**
+ * Browser localStorage, or null when the browser blocks access (private mode, disabled site data).
+ * @returns {Storage|null}
+ */
+function getBrowserStorage() {
+    try {
+        return window.localStorage;
+    } catch (error) {
+        if (error instanceof DOMException) return null;
+        throw error;
+    }
 }
 
 function getCurrentTime() {
@@ -235,6 +263,7 @@ function setupWaveformInteractions() {
         document.getElementById('waveform-canvas'),
         timelineViewport
     );
+    timelineInput.onInput((kind) => gestureProgress.record(kind));
     timelineInput.enable();
 
     playheadFollower = new PlayheadFollower(

@@ -7,6 +7,10 @@ const WHEEL_LINE_HEIGHT_PX = 16;
 const WHEEL_ZOOM_SENSITIVITY = 0.004;
 const WHEEL_ZOOM_MAX_DELTA_PX = 50;
 const WHEEL_AXIS_LOCK_TIMEOUT_MS = 150;
+const GESTURE_IDLE_TIMEOUT_MS = 300;
+
+const INPUT_ZOOM = 'zoom';
+const INPUT_PAN = 'pan';
 
 const DELTA_MODE_LINE = 1;
 const DELTA_MODE_PAGE = 2;
@@ -33,6 +37,8 @@ export class TimelineInput {
         this.viewport = viewport;
         this.lastInputTime = -Infinity;
 
+        this._lastInputKind = null;
+        this._inputListeners = new Set();
         this._wheelAxis = null;
         this._lastWheelTime = -Infinity;
         this._gestureScale = 1;
@@ -49,6 +55,14 @@ export class TimelineInput {
         this.container.addEventListener('gesturestart', this._handleGestureStart);
         this.container.addEventListener('gesturechange', this._handleGestureChange);
         this.container.addEventListener('gestureend', this._preventDefault);
+    }
+
+    /**
+     * Register a listener called once at the start of each zoom or scroll gesture.
+     * @param {Function} listener - Callback receiving 'zoom' or 'pan'
+     */
+    onInput(listener) {
+        this._inputListeners.add(listener);
     }
 
     _handleWheel(event) {
@@ -110,7 +124,7 @@ export class TimelineInput {
         const width = this.canvas.clientWidth;
         if (width <= 0 || deltaPixels === 0) return;
 
-        this._markInput();
+        this._markInput(INPUT_PAN);
         this.viewport.panBy((deltaPixels / width) * this.viewport.visibleDuration);
     }
 
@@ -118,13 +132,21 @@ export class TimelineInput {
         const rect = this.canvas.getBoundingClientRect();
         if (rect.width <= 0) return;
 
-        this._markInput();
+        this._markInput(INPUT_ZOOM);
         const anchorRatio = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
         this.viewport.zoomAt(this.viewport.ratioToTime(anchorRatio), anchorRatio, factor);
     }
 
-    _markInput() {
-        this.lastInputTime = performance.now();
+    _markInput(kind) {
+        const now = performance.now();
+        const isNewGesture = kind !== this._lastInputKind || now - this.lastInputTime > GESTURE_IDLE_TIMEOUT_MS;
+
+        this.lastInputTime = now;
+        this._lastInputKind = kind;
+
+        if (isNewGesture) {
+            this._inputListeners.forEach(listener => listener(kind));
+        }
     }
 }
 

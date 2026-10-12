@@ -32,6 +32,8 @@ php -S localhost:8192
 
 ## Keyboard Shortcuts
 
+Press `?` in the app (or click the `?` in the bottom-left corner of the waveform area) to see all shortcuts.
+
 | Key | Action | Key | Action |
 |-----|--------|-----|--------|
 | `Space` | Play/Pause | `Esc` | Stop |
@@ -76,6 +78,8 @@ StemViewer/
 │   ├── timelineViewport.js # Visible part of the timeline (zoom and scroll position)
 │   ├── timelineInput.js    # Wheel, trackpad and pinch gestures for zoom and scroll
 │   ├── playheadFollower.js # Keeps the playhead in view while zoomed in
+│   ├── shortcutGuide.js    # Gesture hint in the ruler corner and the "?" shortcut sheet
+│   ├── gestureProgress.js  # Remembers which timeline gestures the user has learned
 │   ├── uiController.js     # DOM updates and UI state management
 │   ├── keyboardController.js # Keyboard shortcuts and action dispatching
 │   ├── notifications.js    # Notification and error manager

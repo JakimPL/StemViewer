@@ -125,6 +125,19 @@ test('Safari pinch zooms by the relative scale change', () => {
     assertClose(viewport.visibleDuration, DURATION / 4);
 });
 
+test('input listeners hear each gesture once, at its start', () => {
+    const { input, dispatch } = createFixture();
+    const kinds = [];
+    input.onInput(kind => kinds.push(kind));
+
+    dispatch('wheel', { ctrlKey: true, deltaY: -10 });
+    dispatch('wheel', { ctrlKey: true, deltaY: -10 });
+    dispatch('wheel', { shiftKey: true, deltaY: 10 });
+    dispatch('wheel', { shiftKey: true, deltaY: 10 });
+
+    assert.deepEqual(kinds, ['zoom', 'pan']);
+});
+
 test('pan and zoom record the input time for follow suppression', () => {
     const { input, dispatch } = createFixture();
 

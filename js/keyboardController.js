@@ -3,6 +3,8 @@
  * Keyboard shortcut handling and action dispatching
  */
 
+import { GESTURE_ZOOM } from './gestureProgress.js';
+
 const KEYBOARD_ZOOM_FACTOR = 1.5;
 
 /**
@@ -13,13 +15,17 @@ export class KeyboardController {
      * @param {Function} getAudioEngine - Getter returning the current AudioEngine instance
      * @param {UIController} uiController - UI controller instance
      * @param {TimelineViewport} viewport - Visible timeline window
+     * @param {ShortcutGuide} shortcutGuide - Shortcut sheet toggled with "?"
+     * @param {GestureProgress} gestureProgress - Learned-gesture tracker
      * @param {Object} manifest - Song manifest data
      * @param {Function} showNotification - Notification display function
      */
-    constructor(getAudioEngine, uiController, viewport, manifest, showNotification) {
+    constructor(getAudioEngine, uiController, viewport, shortcutGuide, gestureProgress, manifest, showNotification) {
         this.getAudioEngine = getAudioEngine;
         this.uiController = uiController;
         this.viewport = viewport;
+        this.shortcutGuide = shortcutGuide;
+        this.gestureProgress = gestureProgress;
         this.manifest = manifest;
         this.showNotification = showNotification;
         this.isEnabled = false;
@@ -40,7 +46,8 @@ export class KeyboardController {
             jumpToStart: () => this.jumpToStart(),
             zoomIn: () => this.zoom(KEYBOARD_ZOOM_FACTOR),
             zoomOut: () => this.zoom(1 / KEYBOARD_ZOOM_FACTOR),
-            fitTimeline: () => this.viewport.fit()
+            fitTimeline: () => this.viewport.fit(),
+            toggleShortcuts: () => this.shortcutGuide.toggle()
         };
     }
 
@@ -203,6 +210,8 @@ export class KeyboardController {
      * @param {number} factor - Zoom factor (above 1 zooms in)
      */
     zoom(factor) {
+        this.gestureProgress.record(GESTURE_ZOOM);
+
         const audioEngine = this.getAudioEngine();
         const anchorTime = audioEngine ? audioEngine.getCurrentTime() : this.viewport.ratioToTime(0.5);
         this.viewport.zoomAround(anchorTime, factor);
@@ -214,6 +223,12 @@ export class KeyboardController {
         }
 
         if (e.ctrlKey || e.metaKey || e.altKey) {
+            return;
+        }
+
+        if (e.key === 'Escape' && this.shortcutGuide.isOpen) {
+            e.preventDefault();
+            this.shortcutGuide.close();
             return;
         }
 
@@ -257,7 +272,8 @@ export class KeyboardController {
             '=': this.actions.zoomIn,
             '+': this.actions.zoomIn,
             '-': this.actions.zoomOut,
-            '0': this.actions.fitTimeline
+            '0': this.actions.fitTimeline,
+            '?': this.actions.toggleShortcuts
         };
     }
 
