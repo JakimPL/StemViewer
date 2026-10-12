@@ -1,13 +1,10 @@
 ## Remaining Work
 
 ### 1. Zoom Functionality
-1. Add zoom in/out controls in the UI.
-2. Implement waveform zoom logic in rendering flow.
-3. Add horizontal scroll behavior for zoomed waveform.
-4. Keep playhead, tooltip, and click-to-seek mappings accurate while zoomed.
+1. Optional on-screen zoom in/out buttons (zoom currently uses Ctrl/⌘ + wheel, pinch and the `=` / `-` / `0` keys).
 
 ### 2. Polish, Optimization, and Testing
-1. Responsive pass for smaller screens and touch interaction.
+1. Responsive pass for smaller screens and touch interaction (including touch pinch-zoom of the timeline).
 2. Performance validation with high stem count and long duration content (15+ stems, 8+ minutes).
 3. Browser compatibility test pass (Chrome, Firefox, Safari recent versions).
 4. Optional throttled-network behavior validation for loading UX.
@@ -27,5 +24,3 @@
 ## Deferred / Future Enhancements
 1. Add a waveform generation helper script/tooling.
 2. Add fallback playback path using pre-rendered full mix when stems are missing.
-3. Add beat subdivision grid beyond bar-level display.
-4. Add multi-resolution waveform level-of-detail (LOD) for zoom performance.

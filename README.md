@@ -39,6 +39,27 @@ php -S localhost:8192
 | `Tab` | Next section | `Shift+Tab` | Previous section |
 | `1-9` | Toggle mute stem 1-9 | `Shift+1-9` | Toggle solo stem 1-9 |
 | `M` | Mute all tracks | `U` | Unmute all tracks |
+| `=` / `+` | Zoom timeline in | `-` | Zoom timeline out |
+| `0` | Show the whole song | | |
+
+## Mouse and Trackpad
+
+| Gesture | Action |
+|---------|--------|
+| `Ctrl` + wheel (`⌘` + wheel on Mac), or pinch | Zoom the timeline around the pointer |
+| `Shift` + wheel, or sideways swipe | Scroll the timeline left and right |
+| Wheel | Scroll the stem list up and down |
+| Click on the waveform or a section | Jump there and play |
+
+When zoomed in, the view follows the playhead: it moves to the next page when the playhead reaches the right edge, and jumps to wherever you seek. If you scroll away from the playhead, the view stays where you put it until the next jump.
+
+## Running Tests
+
+The timeline logic has unit tests that use Node's built-in test runner (no packages needed; tested with Node 26):
+
+```bash
+node --test "tests/*.test.js"
+```
 
 ## File Structure
 
@@ -51,6 +72,10 @@ StemViewer/
 ├── js/
 │   ├── main.js             # App entrypoint and module coordination
 │   ├── waveformRenderer.js # Canvas waveform rendering
+│   ├── waveformEnvelope.js # Precomputed loudness data for fast waveform drawing
+│   ├── timelineViewport.js # Visible part of the timeline (zoom and scroll position)
+│   ├── timelineInput.js    # Wheel, trackpad and pinch gestures for zoom and scroll
+│   ├── playheadFollower.js # Keeps the playhead in view while zoomed in
 │   ├── uiController.js     # DOM updates and UI state management
 │   ├── keyboardController.js # Keyboard shortcuts and action dispatching
 │   ├── notifications.js    # Notification and error manager
@@ -58,6 +83,7 @@ StemViewer/
 │   ├── dataLoader.js       # Manifest loading and validation
 │   ├── utils.js            # Utility functions (time, section calculations)
 │   └── audioEngine.js      # Web Audio API playback engine
+├── tests/                  # Unit tests (node --test)
 └── data/
     ├── manifest.json       # Song metadata (EDIT THIS!)
     ├── MANIFEST_FORMAT.md  # Manifest documentation
